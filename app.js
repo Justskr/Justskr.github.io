@@ -1,5 +1,50 @@
 // 单词学习系统 - 模块化重构版本
 
+// 基于随机种子的伪随机数生成器
+class SeededRandom {
+    constructor(seed) {
+        this.seed = this.hashString(seed.toString());
+    }
+
+    // 将字符串转换为数字哈希
+    hashString(str) {
+        let hash = 0;
+        if (str.length === 0) return hash;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // 转换为32位整数
+        }
+        return Math.abs(hash);
+    }
+
+    // 生成0到1之间的随机数
+    next() {
+        this.seed = (this.seed * 9301 + 49297) % 233280;
+        return this.seed / 233280;
+    }
+
+    // 生成指定范围内的随机整数
+    nextInt(min, max) {
+        return Math.floor(this.next() * (max - min + 1)) + min;
+    }
+
+    // 从数组中随机选择一个元素
+    nextChoice(array) {
+        return array[this.nextInt(0, array.length - 1)];
+    }
+
+    // 打乱数组（Fisher-Yates算法）
+    shuffle(array) {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+            const j = this.nextInt(0, i);
+            [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+    }
+}
+
 // 核心命名空间
 const WordTester = {
     // ==================== 状态管理 ====================
@@ -53,6 +98,10 @@ const WordTester = {
         this.clearAllData();
         this.initSpeechSynthesis();
         this.loadDefaultWordBook();
+        
+        // 初始化图表实例
+        this.accuracyChartInstance = null;
+        this.errorChartInstance = null;
     },
 
     // ==================== 事件绑定 ====================
@@ -846,6 +895,26 @@ const WordTester = {
                 callback: () => this.startComprehensiveTrainingExercise(50)
             },
             {
+                elementId: 'ct-friend-battle-btn',
+                eventType: 'click',
+                callback: this.showFriendBattleModal
+            },
+            {
+                elementId: 'close-friend-battle-modal',
+                eventType: 'click',
+                callback: this.hideFriendBattleModal
+            },
+            {
+                elementId: 'cancel-friend-battle-btn',
+                eventType: 'click',
+                callback: this.hideFriendBattleModal
+            },
+            {
+                elementId: 'start-friend-battle-btn',
+                eventType: 'click',
+                callback: this.startFriendBattle
+            },
+            {
                 elementId: 'ct-prev-btn',
                 eventType: 'click',
                 callback: this.goToPreviousComprehensiveTrainingQuestion
@@ -864,6 +933,11 @@ const WordTester = {
                 elementId: 'ct-review-btn',
                 eventType: 'click',
                 callback: this.reviewComprehensiveTrainingErrors
+            },
+            {
+                elementId: 'ct-retry-errors-btn',
+                eventType: 'click',
+                callback: this.retryComprehensiveTrainingErrors
             },
             {
                 elementId: 'ct-back-to-mode-btn',
@@ -916,6 +990,61 @@ const WordTester = {
                 elementId: 'review-all-words-btn',
                 eventType: 'click',
                 callback: this.reviewAllWords
+            },
+            {
+                elementId: 'view-all-words-btn',
+                eventType: 'click',
+                callback: this.showAllWordsModal
+            },
+            {
+                elementId: 'close-all-words-modal',
+                eventType: 'click',
+                callback: this.hideAllWordsModal
+            },
+            {
+                elementId: 'all-words-search',
+                eventType: 'input',
+                callback: this.searchAllWords
+            },
+            {
+                elementId: 'export-error-words-btn',
+                eventType: 'click',
+                callback: this.showExportErrorWordsModal
+            },
+            {
+                elementId: 'import-error-words-btn',
+                eventType: 'click',
+                callback: this.showImportErrorWordsModal
+            },
+            {
+                elementId: 'close-export-error-words-modal',
+                eventType: 'click',
+                callback: this.hideExportErrorWordsModal
+            },
+            {
+                elementId: 'cancel-export-error-words-btn',
+                eventType: 'click',
+                callback: this.hideExportErrorWordsModal
+            },
+            {
+                elementId: 'confirm-export-error-words-btn',
+                eventType: 'click',
+                callback: this.exportErrorWords
+            },
+            {
+                elementId: 'close-import-error-words-modal',
+                eventType: 'click',
+                callback: this.hideImportErrorWordsModal
+            },
+            {
+                elementId: 'cancel-import-error-words-btn',
+                eventType: 'click',
+                callback: this.hideImportErrorWordsModal
+            },
+            {
+                elementId: 'confirm-import-error-words-btn',
+                eventType: 'click',
+                callback: this.importErrorWords
             }
         ]);
     },
@@ -1286,7 +1415,7 @@ const WordTester = {
             this.state.session.incorrectCount++;
         }
         
-        this.updateWordStatus(currentWord.id, isCorrect);
+        this.updateWordStatus(currentWord.id, isCorrect, 'chinese-to-english');
         
         if (this.state.session.current) {
             this.state.session.current.completedWords++;
@@ -1435,7 +1564,7 @@ const WordTester = {
             this.state.session.incorrectCount++;
         }
         
-        this.updateWordStatus(currentWord.id, isCorrect);
+        this.updateWordStatus(currentWord.id, isCorrect, 'english-to-chinese');
         
         if (this.state.session.current) {
             this.state.session.current.completedWords++;
@@ -1582,7 +1711,7 @@ const WordTester = {
             this.state.session.incorrectCount++;
         }
         
-        this.updateWordStatus(currentWord.id, isCorrect);
+        this.updateWordStatus(currentWord.id, isCorrect, 'chinese-to-english-choice');
         
         if (this.state.session.current) {
             this.state.session.current.completedWords++;
@@ -1652,8 +1781,9 @@ const WordTester = {
     },
 
     // 开始综合训练练习
-    startComprehensiveTrainingExercise(totalQuestions) {
+    startComprehensiveTrainingExercise(totalQuestions, seed = null) {
         this.state.comprehensiveTrainingTotalQuestions = totalQuestions;
+        this.state.comprehensiveTrainingSeed = seed;
         this.generateComprehensiveTrainingQuestions();
         
         this.resetStudyState();
@@ -1662,6 +1792,8 @@ const WordTester = {
         this.state.currentWordIndex = 0;
         this.state.correctCount = 0;
         this.state.incorrectCount = 0;
+        this.state.trainingStartTime = new Date().getTime();
+        this.state.comprehensiveTrainingErrors = [];
         
         document.getElementById('ct-start-section').classList.add('hidden');
         document.getElementById('ct-exercise-section').classList.remove('hidden');
@@ -1676,6 +1808,11 @@ const WordTester = {
         const modes = ['chinese-to-english', 'english-to-chinese', 'chinese-to-english-choice'];
         const totalQuestions = this.state.comprehensiveTrainingTotalQuestions;
         
+        // 根据是否有种子选择随机数生成器
+        const rng = this.state.comprehensiveTrainingSeed 
+            ? new SeededRandom(this.state.comprehensiveTrainingSeed)
+            : null;
+        
         // 计算每种类型的题目数量，确保平均分配
         const baseCount = Math.floor(totalQuestions / modes.length);
         const remainder = totalQuestions % modes.length;
@@ -1689,7 +1826,12 @@ const WordTester = {
         const questions = [];
         Object.entries(modeCounts).forEach(([mode, count]) => {
             for (let i = 0; i < count; i++) {
-                const randomIndex = Math.floor(Math.random() * this.state.words.list.length);
+                let randomIndex;
+                if (rng) {
+                    randomIndex = rng.nextInt(0, this.state.words.list.length - 1);
+                } else {
+                    randomIndex = Math.floor(Math.random() * this.state.words.list.length);
+                }
                 const wordId = this.state.words.list[randomIndex].id;
                 questions.push({
                     mode: mode,
@@ -1699,7 +1841,11 @@ const WordTester = {
         });
         
         // 随机打乱题目顺序
-        this.state.comprehensiveTrainingQuestions = this.shuffleArray(questions);
+        if (rng) {
+            this.state.comprehensiveTrainingQuestions = rng.shuffle(questions);
+        } else {
+            this.state.comprehensiveTrainingQuestions = this.shuffleArray(questions);
+        }
     },
     
     // 随机打乱数组
@@ -1837,9 +1983,19 @@ const WordTester = {
             this.state.correctCount++;
         } else {
             this.state.incorrectCount++;
+            // 记录错误信息
+            this.state.comprehensiveTrainingErrors.push({
+                wordId: currentWord.id,
+                english: currentWord.english,
+                chinese: currentWord.chinese,
+                mode: currentQuestion.mode,
+                correctAnswer: correctAnswer,
+                userAnswer: userSelection,
+                timestamp: new Date().getTime()
+            });
         }
         
-        this.updateWordStatus(currentWord.id, isCorrect);
+        this.updateWordStatus(currentWord.id, isCorrect, currentQuestion.mode);
         
         const feedbackElement = document.getElementById('ct-feedback');
         feedbackElement.classList.remove('hidden');
@@ -1939,9 +2095,19 @@ const WordTester = {
             this.state.correctCount++;
         } else {
             this.state.incorrectCount++;
+            // 记录错误信息
+            this.state.comprehensiveTrainingErrors.push({
+                wordId: currentWord.id,
+                english: currentWord.english,
+                chinese: currentWord.chinese,
+                mode: currentQuestion.mode,
+                correctAnswer: correctAnswer,
+                userAnswer: userInput,
+                timestamp: new Date().getTime()
+            });
         }
         
-        this.updateWordStatus(currentWord.id, isCorrect);
+        this.updateWordStatus(currentWord.id, isCorrect, currentQuestion.mode);
         
         const feedbackElement = document.getElementById('ct-feedback');
         feedbackElement.classList.remove('hidden');
@@ -2018,6 +2184,13 @@ const WordTester = {
         const totalQuestions = this.state.comprehensiveTrainingQuestions.length;
         const score = Math.round((this.state.correctCount / totalQuestions) * 100);
         
+        // 计算训练时长
+        const endTime = new Date().getTime();
+        const duration = endTime - this.state.trainingStartTime;
+        const minutes = Math.floor(duration / 60000);
+        const seconds = Math.floor((duration % 60000) / 1000);
+        const formattedDuration = `${minutes}分${seconds}秒`;
+        
         document.getElementById('ct-exercise-section').classList.add('hidden');
         document.getElementById('ct-result-section').classList.remove('hidden');
         
@@ -2032,11 +2205,386 @@ const WordTester = {
         document.getElementById('ct-cte-count').textContent = cteCount;
         document.getElementById('ct-etc-count').textContent = etcCount;
         document.getElementById('ct-ctec-count').textContent = ctecCount;
+        
+        // 计算错误类型分布
+        const errorDistribution = this.calculateErrorDistribution();
+        
+        // 显示训练时长
+        this.showTrainingDuration(formattedDuration);
+        
+        // 延迟显示详细统计和图表，确保DOM已完全更新
+        setTimeout(() => {
+            this.showDetailedStatistics(errorDistribution);
+        }, 100);
+    },
+
+    // 计算错误类型分布
+    calculateErrorDistribution() {
+        const errors = this.state.comprehensiveTrainingErrors || [];
+        const distribution = {
+            'chinese-to-english': 0,
+            'english-to-chinese': 0,
+            'chinese-to-english-choice': 0
+        };
+        
+        errors.forEach(error => {
+            if (distribution[error.mode] !== undefined) {
+                distribution[error.mode]++;
+            }
+        });
+        
+        return distribution;
+    },
+
+    // 显示训练时长
+    showTrainingDuration(duration) {
+        const durationElement = document.getElementById('ct-duration');
+        if (durationElement) {
+            durationElement.textContent = duration;
+        }
+    },
+
+    // 显示详细统计
+    showDetailedStatistics(errorDistribution) {
+        const errorRateElement = document.getElementById('ct-error-rate');
+        if (errorRateElement) {
+            const totalQuestions = this.state.comprehensiveTrainingQuestions.length;
+            const errorRate = totalQuestions > 0 
+                ? Math.round((this.state.incorrectCount / totalQuestions) * 100) 
+                : 0;
+            errorRateElement.textContent = `${errorRate}%`;
+        }
+        
+        // 计算并显示平均答题时间
+        const avgTimeElement = document.getElementById('ct-avg-time');
+        if (avgTimeElement) {
+            const totalQuestions = this.state.comprehensiveTrainingQuestions.length;
+            const duration = new Date().getTime() - this.state.trainingStartTime;
+            const avgTime = totalQuestions > 0 
+                ? Math.round(duration / totalQuestions / 1000) 
+                : 0;
+            avgTimeElement.textContent = `${avgTime}秒`;
+        }
+        
+        // 显示错误类型分布
+        this.showErrorDistribution(errorDistribution);
+    },
+
+    // 显示错误类型分布
+    showErrorDistribution(errorDistribution) {
+        const cteErrorsElement = document.getElementById('ct-cte-errors');
+        const etcErrorsElement = document.getElementById('ct-etc-errors');
+        const ctecErrorsElement = document.getElementById('ct-ctec-errors');
+        
+        if (cteErrorsElement) {
+            cteErrorsElement.textContent = errorDistribution['chinese-to-english'];
+        }
+        if (etcErrorsElement) {
+            etcErrorsElement.textContent = errorDistribution['english-to-chinese'];
+        }
+        if (ctecErrorsElement) {
+            ctecErrorsElement.textContent = errorDistribution['chinese-to-english-choice'];
+        }
+        
+        // 渲染图表
+        this.renderCharts(errorDistribution);
+    },
+
+    // 渲染图表
+    renderCharts(errorDistribution) {
+        const totalQuestions = this.state.comprehensiveTrainingQuestions.length;
+        const correctCount = this.state.correctCount;
+        const incorrectCount = this.state.incorrectCount;
+        
+        console.log('开始渲染图表:', { correctCount, incorrectCount, errorDistribution });
+        
+        // 渲染正确率饼图
+        this.renderAccuracyChart(correctCount, incorrectCount);
+        
+        // 渲染错误类型分布柱状图
+        this.renderErrorDistributionChart(errorDistribution);
+    },
+
+    // 渲染正确率饼图
+    renderAccuracyChart(correctCount, incorrectCount) {
+        console.log('渲染正确率饼图:', correctCount, incorrectCount);
+        
+        // 检查Chart是否可用
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载，等待加载...');
+            // 延迟重试
+            setTimeout(() => {
+                this.renderAccuracyChart(correctCount, incorrectCount);
+            }, 500);
+            return;
+        }
+        
+        const canvas = document.getElementById('ct-accuracy-chart');
+        if (!canvas) {
+            console.error('找不到ct-accuracy-chart元素');
+            return;
+        }
+        const ctx = canvas.getContext('2d');
+        
+        // 销毁已存在的图表
+        if (this.accuracyChartInstance) {
+            this.accuracyChartInstance.destroy();
+        }
+        
+        console.log('Chart对象:', typeof Chart);
+        
+        this.accuracyChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['正确', '错误'],
+                datasets: [{
+                    data: [correctCount, incorrectCount],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderColor: ['#059669', '#dc2626'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((context.raw / total) * 100).toFixed(1);
+                                return `${context.label}: ${context.raw} (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    },
+
+    // 渲染错误类型分布柱状图
+    renderErrorDistributionChart(errorDistribution) {
+        console.log('渲染错误类型分布柱状图:', errorDistribution);
+        
+        // 检查Chart是否可用
+        if (typeof Chart === 'undefined') {
+            console.error('Chart.js未加载，等待加载...');
+            // 延迟重试
+            setTimeout(() => {
+                this.renderErrorDistributionChart(errorDistribution);
+            }, 500);
+            return;
+        }
+        
+        const canvas = document.getElementById('ct-error-chart');
+        if (!canvas) {
+            console.error('找不到ct-error-chart元素');
+            return;
+        }
+        const ctx = canvas.getContext('2d');
+        
+        // 销毁已存在的图表
+        if (this.errorChartInstance) {
+            this.errorChartInstance.destroy();
+        }
+        
+        const labels = {
+            'chinese-to-english': '汉语提示拼写',
+            'english-to-chinese': '英文选汉语',
+            'chinese-to-english-choice': '汉语选英文'
+        };
+        
+        this.errorChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(errorDistribution).map(key => labels[key]),
+                datasets: [{
+                    label: '错误数量',
+                    data: Object.values(errorDistribution),
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                    borderColor: ['#2563eb', '#059669', '#d97706'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
     },
 
     // 复习综合训练错误
     reviewComprehensiveTrainingErrors() {
-        alert('综合训练错误复习功能开发中');
+        const errors = this.state.comprehensiveTrainingErrors || [];
+        
+        if (errors.length === 0) {
+            alert('本次训练没有错误单词');
+            return;
+        }
+        
+        const errorListSection = document.getElementById('ct-error-list-section');
+        const errorWordsContainer = document.getElementById('ct-error-words-container');
+        
+        errorListSection.classList.remove('hidden');
+        errorWordsContainer.innerHTML = '';
+        
+        const modeLabels = {
+            'chinese-to-english': '汉语提示拼写',
+            'english-to-chinese': '英文选汉语',
+            'chinese-to-english-choice': '汉语选英文'
+        };
+        
+        errors.forEach((error, index) => {
+            const errorItem = document.createElement('div');
+            errorItem.className = 'bg-white rounded-lg p-4 shadow-sm';
+            
+            const modeLabel = modeLabels[error.mode] || error.mode;
+            
+            errorItem.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="inline-flex items-center justify-center w-6 h-6 bg-red-100 text-red-600 rounded-full text-sm font-bold">${index + 1}</span>
+                            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">${modeLabel}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">英文</p>
+                                <p class="text-lg font-bold text-gray-800">${error.english}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600 mb-1">中文</p>
+                                <p class="text-lg font-bold text-gray-800">${error.chinese}</p>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <p class="text-sm text-gray-600">正确答案: <span class="font-bold text-green-600">${error.correctAnswer}</span></p>
+                            <p class="text-sm text-gray-600">你的答案: <span class="font-bold text-red-600">${error.userAnswer || '未作答'}</span></p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            errorWordsContainer.appendChild(errorItem);
+        });
+        
+        // 滚动到错误列表
+        errorListSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    },
+
+    // 重新练习错误单词
+    retryComprehensiveTrainingErrors() {
+        const errors = this.state.comprehensiveTrainingErrors || [];
+        
+        if (errors.length === 0) {
+            alert('没有错误单词可以练习');
+            return;
+        }
+        
+        // 从错误单词中提取唯一的单词
+        const uniqueWords = [];
+        const seenWordIds = new Set();
+        
+        errors.forEach(error => {
+            if (!seenWordIds.has(error.wordId)) {
+                seenWordIds.add(error.wordId);
+                uniqueWords.push({
+                    id: error.wordId,
+                    english: error.english,
+                    chinese: error.chinese
+                });
+            }
+        });
+        
+        if (uniqueWords.length === 0) {
+            alert('没有错误单词可以练习');
+            return;
+        }
+        
+        // 创建新的训练题目
+        const retryQuestions = [];
+        const modes = ['chinese-to-english', 'english-to-chinese', 'chinese-to-english-choice'];
+        
+        uniqueWords.forEach(word => {
+            const mode = modes[Math.floor(Math.random() * modes.length)];
+            retryQuestions.push({
+                word: word,
+                mode: mode
+            });
+        });
+        
+        // 重新开始训练
+        this.state.comprehensiveTrainingQuestions = retryQuestions;
+        this.state.currentQuestionIndex = 0;
+        this.state.correctCount = 0;
+        this.state.incorrectCount = 0;
+        this.state.comprehensiveTrainingErrors = [];
+        this.state.trainingStartTime = new Date().getTime();
+        
+        // 显示练习界面
+        document.getElementById('ct-result-section').classList.add('hidden');
+        document.getElementById('ct-error-list-section').classList.add('hidden');
+        document.getElementById('ct-exercise-section').classList.remove('hidden');
+        
+        // 显示第一题
+        this.displayComprehensiveTrainingQuestion();
+    },
+
+    // 显示好友对战模态框
+    showFriendBattleModal() {
+        const modal = document.getElementById('friend-battle-modal');
+        modal.classList.remove('hidden');
+        
+        // 清空输入框并聚焦
+        const input = document.getElementById('room-number-input');
+        input.value = '';
+        input.focus();
+    },
+
+    // 隐藏好友对战模态框
+    hideFriendBattleModal() {
+        const modal = document.getElementById('friend-battle-modal');
+        modal.classList.add('hidden');
+    },
+
+    // 开始好友对战
+    startFriendBattle() {
+        const input = document.getElementById('room-number-input');
+        const roomNumber = input.value.trim();
+        
+        // 验证房间号
+        if (!roomNumber) {
+            alert('请输入房间号');
+            return;
+        }
+        
+        // 验证房间号格式（只允许数字）
+        if (!/^\d+$/.test(roomNumber)) {
+            alert('房间号只能包含数字');
+            return;
+        }
+        
+        // 隐藏模态框
+        this.hideFriendBattleModal();
+        
+        // 开始好友对战（固定10题，使用房间号作为随机种子）
+        this.startComprehensiveTrainingExercise(10, roomNumber);
     },
 
     // 处理忘记答案
@@ -2079,7 +2627,23 @@ const WordTester = {
             }
         }
         
-        this.updateWordStatus(wordId, false);
+        // 根据type参数确定mode
+        let mode;
+        switch(type) {
+            case 'cte':
+                mode = 'chinese-to-english';
+                break;
+            case 'etc':
+                mode = 'english-to-chinese';
+                break;
+            case 'ctec':
+                mode = 'chinese-to-english-choice';
+                break;
+            default:
+                mode = 'chinese-to-english'; // 默认值
+        }
+        
+        this.updateWordStatus(wordId, false, mode);
         this.state.session.incorrectCount++;
         
         // 存储答题状态（标记为忘记）
@@ -2168,8 +2732,347 @@ const WordTester = {
         this.updateChineseToEnglishUI();
     },
 
+    // 显示全部单词列表模态框
+    showAllWordsModal() {
+        const modal = document.getElementById('all-words-modal');
+        modal.classList.remove('hidden');
+        
+        // 渲染单词列表
+        this.renderAllWordsList();
+    },
+
+    // 隐藏全部单词列表模态框
+    hideAllWordsModal() {
+        const modal = document.getElementById('all-words-modal');
+        modal.classList.add('hidden');
+    },
+
+    // 渲染全部单词列表
+    renderAllWordsList(filterText = '') {
+        const container = document.getElementById('all-words-container');
+        const countElement = document.getElementById('all-words-count');
+        
+        let words = this.state.words.list;
+        
+        // 如果有搜索文本，进行过滤
+        if (filterText) {
+            const lowerFilter = filterText.toLowerCase();
+            words = words.filter(word => 
+                word.english.toLowerCase().includes(lowerFilter) ||
+                word.chinese.includes(filterText)
+            );
+        }
+        
+        // 更新单词数量
+        countElement.textContent = words.length;
+        
+        // 清空容器
+        container.innerHTML = '';
+        
+        // 渲染单词卡片
+        words.forEach(word => {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow';
+            
+            const statusClass = word.isStudied 
+                ? (word.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
+                : 'bg-gray-200 text-gray-600';
+            
+            const statusText = word.isStudied 
+                ? (word.isCorrect ? '已掌握' : '需复习')
+                : '未学习';
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-lg font-semibold text-gray-800">${word.english}</span>
+                    <span class="text-xs px-2 py-1 rounded-full ${statusClass}">${statusText}</span>
+                </div>
+                <p class="text-gray-600">${word.chinese}</p>
+            `;
+            
+            container.appendChild(card);
+        });
+        
+        // 如果没有单词，显示提示
+        if (words.length === 0) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <i class="fa fa-search text-4xl mb-4"></i>
+                    <p>${filterText ? '未找到匹配的单词' : '暂无单词数据'}</p>
+                </div>
+            `;
+        }
+    },
+
+    // 搜索全部单词
+    searchAllWords(e) {
+        const filterText = e.target.value.trim();
+        this.renderAllWordsList(filterText);
+    },
+
+    // 显示导出错题模态框
+    showExportErrorWordsModal() {
+        const modal = document.getElementById('export-error-words-modal');
+        modal.classList.remove('hidden');
+    },
+
+    // 隐藏导出错题模态框
+    hideExportErrorWordsModal() {
+        const modal = document.getElementById('export-error-words-modal');
+        modal.classList.add('hidden');
+    },
+
+    // 显示导入错题模态框
+    showImportErrorWordsModal() {
+        const modal = document.getElementById('import-error-words-modal');
+        modal.classList.remove('hidden');
+        
+        // 清空文件输入
+        document.getElementById('import-file-input').value = '';
+    },
+
+    // 隐藏导入错题模态框
+    hideImportErrorWordsModal() {
+        const modal = document.getElementById('import-error-words-modal');
+        modal.classList.add('hidden');
+    },
+
+    // 导出错题
+    exportErrorWords() {
+        const selectedFormat = document.querySelector('input[name="export-format"]:checked').value;
+        
+        // 获取错误单词
+        const errorWords = this.state.words.list
+            .filter(word => word.isStudied && !word.isCorrect)
+            .map(word => ({
+                id: word.id,
+                english: word.english,
+                chinese: word.chinese,
+                errorCount: word.errorCount || 1,
+                lastErrorTime: word.lastErrorTime || new Date().toISOString()
+            }));
+        
+        if (errorWords.length === 0) {
+            alert('暂无错误单词可导出！');
+            return;
+        }
+        
+        switch (selectedFormat) {
+            case 'json':
+                this.exportAsJSON(errorWords);
+                break;
+            case 'word':
+                this.exportAsWord(errorWords);
+                break;
+            case 'excel':
+                this.exportAsExcel(errorWords);
+                break;
+        }
+        
+        this.hideExportErrorWordsModal();
+    },
+
+    // 以JSON格式导出
+    exportAsJSON(words) {
+        const data = {
+            words: words,
+            exportDate: new Date().toISOString(),
+            count: words.length
+        };
+        
+        const jsonString = JSON.stringify(data, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        a.download = `error-words-${timestamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert(`成功导出${words.length}个错误单词到JSON文件！`);
+    },
+
+    // 以Word格式导出
+    exportAsWord(words) {
+        // 创建HTML内容，使用UTF-8编码
+        let htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>错误单词列表</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .summary { margin-bottom: 20px; padding: 10px; background-color: #f0f0f0; }
+    </style>
+</head>
+<body>
+    <h1>错误单词列表</h1>
+    <div class="summary">
+        <p>导出日期: ${new Date().toLocaleString()}</p>
+        <p>错误单词数量: ${words.length}</p>
+    </div>
+    <table>
+        <tr>
+            <th>序号</th>
+            <th>英文单词</th>
+            <th>中文释义</th>
+            <th>错误次数</th>
+            <th>最后错误时间</th>
+        </tr>
+`;
+        
+        words.forEach((word, index) => {
+            htmlContent += `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${word.english}</td>
+            <td>${word.chinese}</td>
+            <td>${word.errorCount}</td>
+            <td>${new Date(word.lastErrorTime).toLocaleString()}</td>
+        </tr>`;
+        });
+        
+        htmlContent += `
+    </table>
+</body>
+</html>
+`;
+        
+        // 创建Blob，使用正确的MIME类型
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        a.download = `error-words-${timestamp}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert(`成功导出${words.length}个错误单词到HTML文件！您可以在Microsoft Word、Google Docs或LibreOffice中打开此文件。`);
+    },
+    exportAsExcel(words) {
+        // 创建CSV内容，添加UTF-8 BOM以确保Excel正确识别编码
+        let csvContent = '\ufeff序号,英文单词,中文释义,错误次数,最后错误时间\n';
+        
+        words.forEach((word, index) => {
+            csvContent += `${index + 1},${word.english},${word.chinese},${word.errorCount},${new Date(word.lastErrorTime).toLocaleString()}\n`;
+        });
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        a.download = `error-words-${timestamp}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert(`成功导出${words.length}个错误单词到CSV文件（可在Excel中打开）！`);
+    },
+
+    // 导入错题
+    importErrorWords() {
+        const fileInput = document.getElementById('import-file-input');
+        
+        if (!fileInput.files.length) {
+            alert('请选择要导入的JSON文件！');
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                
+                // 验证数据格式
+                if (!data.words || !Array.isArray(data.words)) {
+                    throw new Error('JSON文件格式不正确，缺少words数组！');
+                }
+                
+                // 导入单词
+                this.processImportedWords(data.words);
+                this.hideImportErrorWordsModal();
+            } catch (error) {
+                alert(`导入失败：${error.message}`);
+            }
+        };
+        
+        reader.onerror = () => {
+            alert('文件读取失败，请重试！');
+        };
+        
+        reader.readAsText(file);
+    },
+
+    // 处理导入的单词
+    processImportedWords(importedWords) {
+        let importedCount = 0;
+        
+        importedWords.forEach(importedWord => {
+            // 查找是否存在相同的单词（基于英文和中文的组合，而不是ID）
+            const existingWord = this.state.words.list.find(w => 
+                w.english === importedWord.english && w.chinese === importedWord.chinese
+            );
+            
+            if (existingWord) {
+                // 直接使用合并数据的逻辑
+                existingWord.isStudied = true;
+                existingWord.isCorrect = false;
+                existingWord.errorCount = Math.max(existingWord.errorCount || 0, importedWord.errorCount || 1);
+                // 使用较晚的错误时间
+                const existingTime = existingWord.lastErrorTime ? new Date(existingWord.lastErrorTime).getTime() : 0;
+                const importedTime = importedWord.lastErrorTime ? new Date(importedWord.lastErrorTime).getTime() : 0;
+                existingWord.lastErrorTime = existingTime > importedTime ? existingWord.lastErrorTime : importedWord.lastErrorTime;
+                importedCount++;
+            } else {
+                // 为新单词生成唯一ID
+                const newId = Math.max(...this.state.words.list.map(w => w.id), 0) + 1;
+                
+                // 添加新单词
+                const newWord = {
+                    id: newId,
+                    english: importedWord.english,
+                    chinese: importedWord.chinese,
+                    isStudied: true,
+                    isCorrect: false,
+                    errorCount: importedWord.errorCount || 1,
+                    lastErrorTime: importedWord.lastErrorTime || new Date().toISOString(),
+                    studyCount: 0,
+                    lastStudied: null,
+                    lastError: null
+                };
+                this.state.words.list.push(newWord);
+                importedCount++;
+            }
+        });
+        
+        // 更新错误单词列表
+        this.updateErrorWordsList();
+        
+        let message = `成功导入${importedCount}个错误单词！`;
+        alert(message);
+    },
+
     // 更新单词状态
-    updateWordStatus(wordId, isCorrect) {
+    updateWordStatus(wordId, isCorrect, mode) {
         const word = this.state.words.list.find(w => w.id === wordId);
         if (word) {
             word.isStudied = true;
@@ -2180,6 +3083,13 @@ const WordTester = {
             if (!isCorrect) {
                 word.errorCount = (word.errorCount || 0) + 1;
                 word.lastError = new Date().toISOString();
+                word.lastErrorTime = word.lastError; // 保持兼容性
+                
+                // 记录错误的题目类型
+                if (!word.errorModes) {
+                    word.errorModes = {};
+                }
+                word.errorModes[mode] = (word.errorModes[mode] || 0) + 1;
                 
                 // 将错误单词添加到错误队列中（综合训练模式除外）
                 if (this.state.session.mode !== 'comprehensive') {

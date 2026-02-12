@@ -6,6 +6,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Chart.js loaded:', typeof Chart);
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js未能正确加载');
+            }
+        });
+    </script>
     
     <!-- Tailwind 配置 -->
     <script>
@@ -888,6 +898,7 @@
                                     </div>
                                 </div>
                             </div>
+                            </div>
                             
                             <div class="flex justify-center space-x-4">
                                 <button id="cte-review-btn" class="btn-secondary px-6 py-3">
@@ -1093,19 +1104,24 @@
                         </div>
                         
                         <div id="ct-start-section" class="mb-6 text-center">
-                            <h3 class="text-xl font-semibold mb-4">选择题量</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <h3 class="text-xl font-semibold mb-4">训练选项</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                                 <button id="ct-10-btn" class="btn-primary px-6 py-4">
                                     <span class="text-xl font-bold">10道题</span>
-                                    <p class="text-sm mt-1">快速练习</p>
+                                    <p class="text-sm mt-1 text-gray-100">快速练习</p>
                                 </button>
                                 <button id="ct-25-btn" class="btn-primary px-6 py-4">
                                     <span class="text-xl font-bold">25道题</span>
-                                    <p class="text-sm mt-1">标准练习</p>
+                                    <p class="text-sm mt-1 text-gray-100">标准练习</p>
                                 </button>
                                 <button id="ct-50-btn" class="btn-primary px-6 py-4">
                                     <span class="text-xl font-bold">50道题</span>
-                                    <p class="text-sm mt-1">全面练习</p>
+                                    <p class="text-sm mt-1 text-gray-100">全面练习</p>
+                                </button>
+                                <button id="ct-friend-battle-btn" class="btn-secondary px-6 py-4 border-2 border-indigo-500">
+                                    <i class="fa fa-users text-2xl mb-2"></i>
+                                    <span class="text-xl font-bold">好友对战</span>
+                                    <p class="text-sm mt-1 text-gray-100">10道题</p>
                                 </button>
                             </div>
                         </div>
@@ -1155,40 +1171,75 @@
                         </div>
                         
                         <div id="ct-result-section" class="hidden text-center py-8">
-                            <div class="mb-6">
-                                <i class="fa fa-trophy text-5xl text-yellow-500 mb-4"></i>
-                                <h3 class="text-2xl font-bold text-gray-800 mb-2">训练完成!</h3>
+                            <div class="mb-8">
+                                <div class="inline-flex items-center justify-center w-20 h-20 bg-yellow-100 rounded-full mb-4">
+                                    <i class="fa fa-trophy text-4xl text-yellow-500"></i>
+                                </div>
+                                <h3 class="text-3xl font-bold text-gray-800 mb-2">训练完成!</h3>
                                 <p class="text-gray-600 mb-4">您已完成所有题目</p>
                             </div>
                             
                             <div class="bg-gray-50 rounded-lg p-6 mb-6">
-                                <h4 class="text-lg font-semibold mb-2">训练统计</h4>
+                                <h4 class="text-lg font-semibold mb-4 text-gray-800">训练统计</h4>
                                 <div class="grid grid-cols-3 gap-4 mb-4">
-                                    <div>
-                                        <p class="text-gray-600 text-sm">总题数</p>
-                                        <p id="ct-total-count" class="text-xl font-bold text-gray-800">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">总题数</p>
+                                        <p id="ct-total-count" class="text-2xl font-bold text-gray-800">0</p>
                                     </div>
-                                    <div>
-                                        <p class="text-gray-600 text-sm">正确数</p>
-                                        <p id="ct-correct-count" class="text-xl font-bold text-green-500">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">正确数</p>
+                                        <p id="ct-correct-count" class="text-2xl font-bold text-green-500">0</p>
                                     </div>
-                                    <div>
-                                        <p class="text-gray-600 text-sm">得分</p>
-                                        <p id="ct-score" class="text-xl font-bold text-blue-500">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">得分</p>
+                                        <p id="ct-score" class="text-2xl font-bold text-blue-500">0</p>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-3 gap-4 mb-4">
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">训练时长</p>
+                                        <p id="ct-duration" class="text-2xl font-bold text-gray-800">0分0秒</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">错误率</p>
+                                        <p id="ct-error-rate" class="text-2xl font-bold text-red-500">0%</p>
+                                    </div>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">平均答题时间</p>
+                                        <p id="ct-avg-time" class="text-2xl font-bold text-gray-800">0秒</p>
                                     </div>
                                 </div>
                                 <div class="grid grid-cols-3 gap-4">
-                                    <div>
-                                        <p class="text-gray-600 text-sm">汉语提示拼写</p>
-                                        <p id="ct-cte-count" class="text-xl font-bold text-gray-800">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">汉语提示拼写</p>
+                                        <p id="ct-cte-count" class="text-2xl font-bold text-gray-800">0</p>
+                                        <p class="text-xs text-red-500 mt-1">错误: <span id="ct-cte-errors">0</span></p>
                                     </div>
-                                    <div>
-                                        <p class="text-gray-600 text-sm">英文选汉语</p>
-                                        <p id="ct-etc-count" class="text-xl font-bold text-gray-800">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">英文选汉语</p>
+                                        <p id="ct-etc-count" class="text-2xl font-bold text-gray-800">0</p>
+                                        <p class="text-xs text-red-500 mt-1">错误: <span id="ct-etc-errors">0</span></p>
                                     </div>
-                                    <div>
-                                        <p class="text-gray-600 text-sm">汉语选英文</p>
-                                        <p id="ct-ctec-count" class="text-xl font-bold text-gray-800">0</p>
+                                    <div class="bg-white rounded-lg p-4 shadow-sm">
+                                        <p class="text-gray-600 text-sm mb-1">汉语选英文</p>
+                                        <p id="ct-ctec-count" class="text-2xl font-bold text-gray-800">0</p>
+                                        <p class="text-xs text-red-500 mt-1">错误: <span id="ct-ctec-errors">0</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 图表区域 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div class="bg-white rounded-lg p-4 shadow-sm">
+                                    <h4 class="text-lg font-semibold mb-4">正确率分析</h4>
+                                    <div class="relative h-64">
+                                        <canvas id="ct-accuracy-chart"></canvas>
+                                    </div>
+                                </div>
+                                <div class="bg-white rounded-lg p-4 shadow-sm">
+                                    <h4 class="text-lg font-semibold mb-4">错误类型分布</h4>
+                                    <div class="relative h-64">
+                                        <canvas id="ct-error-chart"></canvas>
                                     </div>
                                 </div>
                             </div>
@@ -1200,6 +1251,21 @@
                                 <button id="ct-back-to-mode-btn" class="btn-primary px-6 py-3">
                                     <i class="fa fa-arrow-left mr-2"></i>返回模式选择
                                 </button>
+                            </div>
+                            
+                            <!-- 错误单词列表 -->
+                            <div id="ct-error-list-section" class="hidden mt-6">
+                                <div class="bg-gray-50 rounded-lg p-6">
+                                    <h4 class="text-lg font-semibold mb-4 text-gray-800">错误单词列表</h4>
+                                    <div id="ct-error-words-container" class="space-y-3">
+                                        <!-- 错误单词将通过JavaScript动态生成 -->
+                                    </div>
+                                    <div class="mt-4 flex justify-center">
+                                        <button id="ct-retry-errors-btn" class="btn-primary px-6 py-3">
+                                            <i class="fa fa-repeat mr-2"></i>重新练习错误单词
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1258,10 +1324,21 @@
                             </div>
                         </div>
                         
-                        <div class="flex justify-center">
+                        <div class="flex justify-center space-y-3 flex-col">
                             <button id="review-all-words-btn" class="btn-primary px-8 py-3">
                                 <i class="fa fa-repeat mr-2"></i>重新练习所有错误单词
                             </button>
+                            <button id="view-all-words-btn" class="btn-secondary px-8 py-3">
+                                <i class="fa fa-list mr-2"></i>查看全部单词列表
+                            </button>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                                <button id="export-error-words-btn" class="btn-secondary px-6 py-3">
+                                    <i class="fa fa-download mr-2"></i>导出错题
+                                </button>
+                                <button id="import-error-words-btn" class="btn-secondary px-6 py-3">
+                                    <i class="fa fa-upload mr-2"></i>导入错题
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1344,6 +1421,121 @@
                     <div class="h-6 bg-gray-200 rounded mb-4"></div>
                     <div class="h-4 bg-gray-200 rounded mb-2 w-full"></div>
                     <div class="h-4 bg-gray-200 rounded mb-2 w-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 好友对战房间号输入模态框 -->
+    <div id="friend-battle-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center animate-fade-in">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center border-b border-gray-200 p-4">
+                <h3 class="text-xl font-semibold text-gray-800">好友对战</h3>
+                <button id="close-friend-battle-modal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label for="room-number-input" class="block text-gray-700 mb-2 font-medium">房间号（随机种子）</label>
+                    <input type="text" id="room-number-input" class="input-primary w-full text-lg" placeholder="请输入房间号（数字组合）" maxlength="20">
+                    <p class="text-sm text-gray-500 mt-2">输入相同的房间号将生成相同的题目序列</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-friend-battle-btn" class="btn-secondary px-6 py-2">
+                        取消
+                    </button>
+                    <button id="start-friend-battle-btn" class="btn-primary px-6 py-2">
+                        开始对战
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 全部单词列表模态框 -->
+    <div id="all-words-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center animate-fade-in">
+        <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[80vh] flex flex-col mx-4">
+            <div class="flex justify-between items-center border-b border-gray-200 p-4 sticky top-0 bg-white z-10 rounded-t-xl">
+                <h3 class="text-xl font-semibold text-gray-800">全部单词列表</h3>
+                <button id="close-all-words-modal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-grow">
+                <div class="mb-4 flex justify-between items-center">
+                    <p class="text-gray-600">共 <span id="all-words-count">0</span> 个单词</p>
+                    <input type="text" id="all-words-search" class="input-primary w-64" placeholder="搜索单词...">
+                </div>
+                <div id="all-words-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <!-- 单词列表将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导出错题模态框 -->
+    <div id="export-error-words-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center animate-fade-in">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center border-b border-gray-200 p-4">
+                <h3 class="text-xl font-semibold text-gray-800">导出错题</h3>
+                <button id="close-export-error-words-modal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 font-medium">选择导出格式</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <input type="radio" id="export-json" name="export-format" value="json" class="mr-2" checked>
+                            <label for="export-json">JSON格式 (.json)</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="export-word" name="export-format" value="word" class="mr-2">
+                            <label for="export-word">HTML格式 (.html)</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="export-excel" name="export-format" value="excel" class="mr-2">
+                            <label for="export-excel">Excel格式 (.xlsx)</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-export-error-words-btn" class="btn-secondary px-6 py-2">
+                        取消
+                    </button>
+                    <button id="confirm-export-error-words-btn" class="btn-primary px-6 py-2">
+                        导出
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入错题模态框 -->
+    <div id="import-error-words-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center animate-fade-in">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full mx-4">
+            <div class="flex justify-between items-center border-b border-gray-200 p-4">
+                <h3 class="text-xl font-semibold text-gray-800">导入错题</h3>
+                <button id="close-import-error-words-modal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                    <i class="fa fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <label class="block text-gray-700 mb-2 font-medium">选择JSON文件</label>
+                    <input type="file" id="import-file-input" class="input-primary w-full" accept=".json">
+                    <p class="text-sm text-gray-500 mt-2">仅支持JSON格式文件导入</p>
+                    <p class="text-sm text-gray-500 mt-1">系统将自动合并重复错题数据</p>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button id="cancel-import-error-words-btn" class="btn-secondary px-6 py-2">
+                        取消
+                    </button>
+                    <button id="confirm-import-error-words-btn" class="btn-primary px-6 py-2">
+                        导入
+                    </button>
                 </div>
             </div>
         </div>
