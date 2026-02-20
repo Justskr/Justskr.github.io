@@ -497,6 +497,7 @@ const WordTester = {
         this.state.session.errorQueue = [];
         this.state.session.questionsAnswered = 0;
         this.state.session.answeredWords = {};
+        this.state.session.wordAppearanceCount = {}; // 记录每个单词在当前会话中出现的次数
         
         // 隐藏所有反馈信息div
         const feedbackDivs = [
@@ -512,6 +513,29 @@ const WordTester = {
                 div.classList.add('hidden');
             }
         });
+    },
+
+    // 获取单词在当前会话中的出现次数
+    getWordAppearanceCount(wordId) {
+        if (!this.state.session.wordAppearanceCount[wordId]) {
+            this.state.session.wordAppearanceCount[wordId] = 0;
+        }
+        return this.state.session.wordAppearanceCount[wordId];
+    },
+
+    // 增加单词的出现次数并返回新的次数
+    incrementWordAppearanceCount(wordId) {
+        if (!this.state.session.wordAppearanceCount[wordId]) {
+            this.state.session.wordAppearanceCount[wordId] = 0;
+        }
+        this.state.session.wordAppearanceCount[wordId]++;
+        return this.state.session.wordAppearanceCount[wordId];
+    },
+
+    // 生成答题状态的唯一键（使用 word.id 和出现次数的组合）
+    getAnswerKey(wordId) {
+        const appearanceCount = this.getWordAppearanceCount(wordId);
+        return `${wordId}_${appearanceCount}`;
     },
 
     // ==================== UI 模块 ====================
@@ -534,6 +558,20 @@ const WordTester = {
             const div = document.getElementById(divId);
             if (div) {
                 div.classList.add('hidden');
+            }
+        });
+        
+        // 重置所有"我有点忘了"按钮的状态
+        const forgotButtons = [
+            'cte-forgot-btn',
+            'etc-forgot-btn',
+            'ctec-forgot-btn'
+        ];
+        
+        forgotButtons.forEach(btnId => {
+            const btn = document.getElementById(btnId);
+            if (btn) {
+                btn.disabled = false;
             }
         });
         
@@ -1159,7 +1197,7 @@ const WordTester = {
     updateStatsPage() {
         const totalWords = this.state.words.list.length;
         const masteredWords = this.state.words.list.filter(word => word.isCorrect).length;
-        const needPracticeWords = this.state.words.list.filter(word => !word.isCorrect && word.isStudied).length;
+        const needPracticeWords = this.state.words.list.filter(word => word.isInErrorList).length;
         
         document.getElementById('stats-total-words').textContent = totalWords;
         document.getElementById('stats-mastered-words').textContent = masteredWords;
@@ -1172,9 +1210,19 @@ const WordTester = {
         this.updateErrorWordsList();
     },
 
+    // 从错误列表中删除单词
+    removeWordFromErrorList(wordId) {
+        const word = this.state.words.list.find(w => w.id === wordId);
+        if (word) {
+            word.isInErrorList = false;
+            word.isCorrect = true; // 标记为正确，因为用户已经掌握了
+            this.updateErrorWordsList();
+        }
+    },
+
     // 更新错误单词列表
     updateErrorWordsList() {
-        const errorWords = this.state.words.list.filter(word => word.isStudied && !word.isCorrect);
+        const errorWords = this.state.words.list.filter(word => word.isInErrorList);
         const errorWordsList = document.getElementById('error-words-list');
         
         if (!errorWordsList) {
@@ -1195,11 +1243,26 @@ const WordTester = {
         }
         
         errorWordsList.innerHTML = errorWords.map(word => `
-            <li class="py-2 flex justify-between items-center">
-                <span class="font-medium">${word.english}</span>
-                <span class="text-gray-600">${word.chinese}</span>
+            <li class="py-2 flex justify-between items-center" data-word-id="${word.id}">
+                <div class="flex-1">
+                    <span class="font-medium">${word.english}</span>
+                    <span class="text-gray-600 ml-2">${word.chinese}</span>
+                </div>
+                <button class="delete-error-word-btn text-red-500 hover:text-red-700 ml-4 px-2 py-1 rounded hover:bg-red-50 transition-colors" data-word-id="${word.id}" title="从错误列表中删除">
+                    <i class="fa fa-trash"></i>
+                </button>
             </li>
         `).join('');
+        
+        // 绑定删除按钮事件
+        const deleteButtons = errorWordsList.querySelectorAll('.delete-error-word-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wordId = parseInt(btn.getAttribute('data-word-id'));
+                this.removeWordFromErrorList(wordId);
+            });
+        });
         
         const reviewBtn = document.getElementById('review-error-words-btn');
         if (reviewBtn) {
@@ -1264,7 +1327,7 @@ const WordTester = {
     reviewErrors(updateUIFunction) {
         const errorWords = this.state.session.words.filter((word, index) => {
             const wordInList = this.state.words.list.find(w => w.id === word.id);
-            return wordInList && wordInList.isCorrect === false;
+            return wordInList && wordInList.isInErrorList;
         });
         
         if (errorWords.length === 0) {
@@ -1366,8 +1429,13 @@ const WordTester = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('cte-chinese-meaning').textContent = currentWord.chinese;
         document.getElementById('cte-english-input').value = '';
-        // 检查当前单词是否已经被回答过
-        const answeredStatus = this.state.session.answeredWords[this.state.session.currentIndex];
+        
+        // 增加单词的出现次数
+        this.incrementWordAppearanceCount(currentWord.id);
+        
+        // 检查当前单词是否已经被回答过（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        const answeredStatus = this.state.session.answeredWords[answerKey];
         
         document.getElementById('cte-feedback').classList.add('hidden');
         
@@ -1429,8 +1497,9 @@ const WordTester = {
         document.getElementById('cte-check-btn').disabled = true;
         document.getElementById('cte-next-btn').disabled = false;
         
-        // 存储答题状态
-        this.state.session.answeredWords[this.state.session.currentIndex] = {
+        // 存储答题状态（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: isCorrect,
             correctAnswer: currentWord.english,
             userAnswer: userInput,
@@ -1490,11 +1559,15 @@ const WordTester = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('etc-english-word').textContent = currentWord.english;
         
+        // 增加单词的出现次数
+        this.incrementWordAppearanceCount(currentWord.id);
+        
         const options = this.generateOptions(currentWord, 'chinese');
         this.generateOptionButtons(options, 'etc-options', this.selectEnglishToChineseOption);
         
-        // 检查当前单词是否已经被回答过
-        const answeredStatus = this.state.session.answeredWords[this.state.session.currentIndex];
+        // 检查当前单词是否已经被回答过（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        const answeredStatus = this.state.session.answeredWords[answerKey];
         
         document.getElementById('etc-feedback').classList.add('hidden');
         
@@ -1578,8 +1651,9 @@ const WordTester = {
         const optionButtons = document.querySelectorAll('#etc-options button');
         this.handleOptionFeedback(optionButtons, correctAnswer, button, isCorrect);
         
-        // 存储答题状态
-        this.state.session.answeredWords[this.state.session.currentIndex] = {
+        // 存储答题状态（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: isCorrect,
             correctAnswer: currentWord.chinese,
             userAnswer: userSelection,
@@ -1649,11 +1723,15 @@ const WordTester = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('ctec-chinese-meaning').textContent = currentWord.chinese;
         
+        // 增加单词的出现次数
+        this.incrementWordAppearanceCount(currentWord.id);
+        
         const options = this.generateOptions(currentWord, 'english');
         this.generateOptionButtons(options, 'ctec-options', this.selectChineseToEnglishChoiceOption);
         
-        // 检查当前单词是否已经被回答过
-        const answeredStatus = this.state.session.answeredWords[this.state.session.currentIndex];
+        // 检查当前单词是否已经被回答过（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        const answeredStatus = this.state.session.answeredWords[answerKey];
         
         document.getElementById('ctec-feedback').classList.add('hidden');
         
@@ -1725,8 +1803,9 @@ const WordTester = {
         const optionButtons = document.querySelectorAll('#ctec-options button');
         this.handleOptionFeedback(optionButtons, correctAnswer, button, isCorrect);
         
-        // 存储答题状态
-        this.state.session.answeredWords[this.state.session.currentIndex] = {
+        // 存储答题状态（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: isCorrect,
             correctAnswer: currentWord.english,
             userAnswer: userSelection,
@@ -1872,6 +1951,9 @@ const WordTester = {
             return;
         }
         
+        // 增加单词的出现次数
+        this.incrementWordAppearanceCount(currentWord.id);
+        
         document.getElementById('ct-question-type').textContent = this.getQuestionTypeText(currentQuestion.mode);
         
         if (currentQuestion.mode === 'chinese-to-english') {
@@ -1904,8 +1986,9 @@ const WordTester = {
             });
         }
         
-        // 检查当前问题是否已经被回答过
-        const answeredStatus = this.state.session.answeredWords[this.state.currentWordIndex];
+        // 检查当前问题是否已经被回答过（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        const answeredStatus = this.state.session.answeredWords[answerKey];
         
         document.getElementById('ct-feedback').classList.add('hidden');
         
@@ -2065,8 +2148,9 @@ const WordTester = {
             btn.disabled = true;
         });
         
-        // 存储答题状态
-        this.state.session.answeredWords[this.state.currentWordIndex] = {
+        // 存储答题状态（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: isCorrect,
             correctAnswer: correctAnswer,
             userAnswer: userSelection,
@@ -2156,8 +2240,9 @@ const WordTester = {
         document.getElementById('ct-check-btn').disabled = true;
         document.getElementById('ct-next-btn').disabled = false;
         
-        // 存储答题状态
-        this.state.session.answeredWords[this.state.currentWordIndex] = {
+        // 存储答题状态（使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(currentWord.id);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: isCorrect,
             correctAnswer: currentWord.english,
             userAnswer: userInput,
@@ -2646,8 +2731,9 @@ const WordTester = {
         this.updateWordStatus(wordId, false, mode);
         this.state.session.incorrectCount++;
         
-        // 存储答题状态（标记为忘记）
-        this.state.session.answeredWords[this.state.session.currentIndex] = {
+        // 存储答题状态（标记为忘记，使用复合键：word.id + appearanceCount）
+        const answerKey = this.getAnswerKey(wordId);
+        this.state.session.answeredWords[answerKey] = {
             isCorrect: false,
             correctAnswer: correctAnswer,
             userAnswer: null,
@@ -2679,7 +2765,7 @@ const WordTester = {
 
     // 复习错误单词
     reviewErrorWords() {
-        const errorWords = this.state.words.list.filter(word => word.isStudied && !word.isCorrect);
+        const errorWords = this.state.words.list.filter(word => word.isInErrorList);
         
         if (errorWords.length === 0) {
             alert('没有错误单词需要复习');
@@ -2698,9 +2784,9 @@ const WordTester = {
 
     // 复习所有错误单词
     reviewAllWords() {
-        // 只包含错误单词（已学习但不正确的单词）
+        // 只包含错误单词（标记为 isInErrorList 的单词）
         const errorWords = this.state.words.list
-            .filter(word => word.isStudied && !word.isCorrect);
+            .filter(word => word.isInErrorList);
         
         if (errorWords.length === 0) {
             alert('暂无错误单词需要练习！');
@@ -2843,7 +2929,7 @@ const WordTester = {
         
         // 获取错误单词
         const errorWords = this.state.words.list
-            .filter(word => word.isStudied && !word.isCorrect)
+            .filter(word => word.isInErrorList)
             .map(word => ({
                 id: word.id,
                 english: word.english,
@@ -3076,7 +3162,13 @@ const WordTester = {
         const word = this.state.words.list.find(w => w.id === wordId);
         if (word) {
             word.isStudied = true;
-            word.isCorrect = isCorrect;
+            
+            // 只有当单词之前不在错误列表中时，才更新 isCorrect 状态
+            // 如果单词已经在错误列表中（isCorrect 为 false），则保持错误状态
+            if (!word.isInErrorList) {
+                word.isCorrect = isCorrect;
+            }
+            
             word.studyCount = (word.studyCount || 0) + 1;
             word.lastStudied = new Date().toISOString();
             
@@ -3084,6 +3176,9 @@ const WordTester = {
                 word.errorCount = (word.errorCount || 0) + 1;
                 word.lastError = new Date().toISOString();
                 word.lastErrorTime = word.lastError; // 保持兼容性
+                
+                // 标记单词在错误列表中
+                word.isInErrorList = true;
                 
                 // 记录错误的题目类型
                 if (!word.errorModes) {
