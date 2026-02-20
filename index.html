@@ -2,6 +2,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>word-tester</title>
+    <link rel="icon" href="img/Logo.ico" type="image/x-icon">
     <!-- Tailwind CSS v3 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Font Awesome -->
@@ -700,10 +701,8 @@
     <nav class="bg-white shadow-md sticky top-0 z-50">
         <div class="container mx-auto px-4 py-3 flex justify-between items-center">
             <div class="flex items-center space-x-2">
-                <div class="bg-primary text-white h-10 w-10 rounded-lg flex items-center justify-center">
-                    <i class="fa fa-book text-xl"></i>
-                </div>
-                <h1 class="text-xl md:text-2xl font-bold text-gray-800 mt-1">word-tester</h1>
+                <img src="img/Logo.png" alt="Logo" class="h-10 w-10 rounded-lg object-contain">
+                <h1 class="text-lg md:text-xl lg:text-2xl font-bold font-sans tracking-wide text-gray-800 mt-3">word-tester</h1>
             </div>
             <div class="hidden md:flex space-x-4">
                 <a href="#" id="nav-mode" class="nav-btn text-gray-600 hover:text-primary transition-colors">首页</a>
@@ -738,7 +737,7 @@
                             <div class="bg-primary/10 p-4 rounded-full flex-shrink-0">
                                 <i class="fa fa-heart text-3xl text-primary animate-pulse-slow"></i>
                             </div>
-                            <div class="text-center max-w-md mt-1">
+                            <div class="text-center max-w-md mt-6">
                                 <h3 class="text-2xl font-semibold text-gray-800 mb-3">欢迎使用 word-tester</h3>
                                 <p class="text-gray-600 leading-relaxed">开始您的单词学习之旅，选择适合您的背诵模式</p>
                             </div>
@@ -1282,8 +1281,8 @@
                                 <button id="change-book-btn" class="btn-secondary px-6 py-2">
                                     <i class="fa fa-book mr-2"></i>变更词书
                                 </button>
-                                <button id="reset-stats-btn" class="btn-danger px-6 py-2">
-                                    <i class="fa fa-refresh mr-2"></i>重置统计
+                                <button id="import-export-stats-btn" class="btn-primary px-6 py-2">
+                                    <i class="fa fa-exchange mr-2"></i>导入/导出统计
                                 </button>
                             </div>
                         </div>
@@ -1379,6 +1378,57 @@
                             </div>
                         </div>
                         <p id="modal-status-message" class="text-gray-700"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 导入/导出统计模态框 -->
+            <div id="import-export-stats-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                <div class="bg-white rounded-xl shadow-xl p-8 max-w-lg w-full mx-4 animate-scale-in">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800">导入/导出统计</h3>
+                        <button id="close-import-export-stats-modal" class="text-gray-500 hover:text-gray-700 transition-colors">
+                            <i class="fa fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- 操作选项 -->
+                    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+                        <div class="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-6 cursor-pointer hover:bg-blue-100 transition-colors" id="export-stats-option">
+                            <div class="flex items-center mb-3">
+                                <i class="fa fa-download text-3xl text-blue-500 mr-4"></i>
+                                <h4 class="text-lg font-semibold text-gray-800">导出统计</h4>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">将当前背诵状态数据导出为 JSON 文件，包含每个单词的掌握程度、错误次数、最近错误时间等详细信息。</p>
+                            <button class="btn-primary w-full" id="export-stats-btn">
+                                <i class="fa fa-download mr-2"></i>导出统计数据
+                            </button>
+                        </div>
+                        
+                        <div class="flex-1 bg-green-50 border border-green-200 rounded-lg p-6 cursor-pointer hover:bg-green-100 transition-colors" id="import-stats-option">
+                            <div class="flex items-center mb-3">
+                                <i class="fa fa-upload text-3xl text-green-500 mr-4"></i>
+                                <h4 class="text-lg font-semibold text-gray-800">导入统计</h4>
+                            </div>
+                            <p class="text-gray-600 text-sm mb-4">上传包含背诵状态数据的 JSON 文件，系统将验证文件格式并将数据更新到当前背诵记录中。</p>
+                            <button class="btn-success w-full" id="import-stats-btn">
+                                <i class="fa fa-upload mr-2"></i>导入统计数据
+                            </button>
+                            <input type="file" id="stats-file-input" accept=".json" class="hidden">
+                        </div>
+                    </div>
+                    
+                    <!-- 状态显示 -->
+                    <div id="stats-import-export-status" class="mt-6 hidden">
+                        <div id="stats-loading-spinner" class="flex items-center justify-center mb-4 transition-all duration-500">
+                            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary transition-all duration-500"></div>
+                        </div>
+                        <div id="stats-success-icon" class="flex items-center justify-center mb-4 transition-all duration-500 scale-0 opacity-0">
+                            <div class="rounded-full h-12 w-12 bg-green-100 flex items-center justify-center">
+                                <i class="fa fa-check text-2xl text-green-500"></i>
+                            </div>
+                        </div>
+                        <p id="stats-status-message" class="text-gray-700"></p>
                     </div>
                 </div>
             </div>
