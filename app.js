@@ -2486,9 +2486,24 @@ const Wordskr = {
         // 将相似词转换为选项格式
         let similarOptions = [];
         if (similarWords.length > 0) {
-            similarOptions = similarWords
-                .filter(word => word && word.trim() !== '')
-                .map(word => word.trim());
+            if (type === 'chinese') {
+                // 中文模式：需要将相似词转换为中文释义
+                similarOptions = similarWords
+                    .filter(word => word && word.trim() !== '')
+                    .map(word => {
+                        const similarWord = this.state.words.list.find(w => 
+                            (w.englishList && w.englishList.includes(word.trim())) || 
+                            w.english === word.trim()
+                        );
+                        return similarWord ? this.getMergedChineseText(similarWord) : '';
+                    })
+                    .filter(text => text && text.trim() !== '');
+            } else {
+                // 英文模式：直接使用英文单词
+                similarOptions = similarWords
+                    .filter(word => word && word.trim() !== '')
+                    .map(word => word.trim());
+            }
         }
         
         // 收集所有非相似词选项
@@ -3145,7 +3160,7 @@ const Wordskr = {
                         correctButton.style.transform = 'scale(1)';
                         correctButton.style.boxShadow = '0 4px 8px rgba(16, 185, 129, 0.3)';
                         setTimeout(() => {
-                            this.state.comprehensiveTraining.currentIndex++;
+                            this.state.comprehensive.currentIndex++;
                             this.updateComprehensiveTrainingUI();
                         }, 200);
                     }, 100);
@@ -3666,7 +3681,7 @@ const Wordskr = {
         uniqueWords.forEach(word => {
             const mode = modes[Math.floor(Math.random() * modes.length)];
             retryQuestions.push({
-                word: word,
+                wordId: word.id,
                 mode: mode
             });
         });
@@ -3685,7 +3700,7 @@ const Wordskr = {
         document.getElementById('ct-exercise-section').classList.remove('hidden');
         
         // 显示第一题
-        this.displayComprehensiveTrainingQuestion();
+        this.updateComprehensiveTrainingUI();
     },
 
     // 显示好友对战模态框
