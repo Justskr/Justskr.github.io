@@ -638,6 +638,12 @@ const Wordskr = {
 
         if (answeredStatus) {
             // 已回答过，显示为已回答状态（锁定答案区域）
+            // 隐藏忘记按钮
+            const forgotBtn = document.getElementById('at-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = true;
+            }
+            
             const optionButtons = document.querySelectorAll('#at-example-options button');
             const correctAnswer = answeredStatus.correctAnswer;
             const userAnswer = answeredStatus.userAnswer;
@@ -669,6 +675,12 @@ const Wordskr = {
         } else {
             // 未回答过，显示为初始状态（允许用户作答）
             document.getElementById('at-next-btn').disabled = true;
+            
+            // 启用忘记按钮
+            const forgotBtn = document.getElementById('at-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = false;
+            }
         }
     },
 
@@ -679,6 +691,9 @@ const Wordskr = {
         const correctMeanings = currentQuestion.meanings;
 
         document.getElementById('at-meaning-word').textContent = currentWord.english;
+
+        // 自动朗读单词
+        this.speakWord(currentWord.english);
 
         // 生成选项
         const options = this.generateMeaningTrainingOptions(currentWord, correctMeanings);
@@ -702,6 +717,12 @@ const Wordskr = {
 
         if (answeredStatus) {
             // 已回答过，显示为已回答状态（锁定答案区域）
+            // 禁用忘记按钮
+            const forgotBtn = document.getElementById('at-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = true;
+            }
+            
             const optionButtons = document.querySelectorAll('#at-meaning-options button');
             const correctAnswers = answeredStatus.correctAnswer;
             const userAnswers = answeredStatus.userAnswer;
@@ -734,6 +755,12 @@ const Wordskr = {
         } else {
             // 未回答过，显示为初始状态（允许用户作答）
             document.getElementById('at-next-btn').disabled = true;
+            
+            // 启用忘记按钮
+            const forgotBtn = document.getElementById('at-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = false;
+            }
         }
     },
 
@@ -982,6 +1009,9 @@ const Wordskr = {
     // 前往上一个进阶训练单词
     goToPreviousAdvancedTrainingWord() {
         if (this.state.session.currentIndex > 0) {
+            // 停止当前语音播放
+            this.stopSpeech();
+            
             this.state.session.currentIndex--;
             this.updateAdvancedTrainingUI();
         }
@@ -989,6 +1019,9 @@ const Wordskr = {
 
     // 前往下一个进阶训练单词
     goToNextAdvancedTrainingWord() {
+        // 停止当前语音播放
+        this.stopSpeech();
+        
         // 增加已回答问题数量
         this.state.session.questionsAnswered++;
         
@@ -1327,6 +1360,11 @@ const Wordskr = {
             if (pageId === 'stats-page') {
                 this.updateStatsPage();
             }
+            
+            // 为新页面添加语音点击事件
+            setTimeout(() => {
+                this.addSpeechClickEvents();
+            }, 100);
         } else {
             console.error(`页面ID不存在: ${pageId}`);
             // 默认显示模式选择页面
@@ -1527,11 +1565,6 @@ const Wordskr = {
                 elementId: 'cte-forgot-btn',
                 eventType: 'click',
                 callback: () => this.handleForgotAnswer('cte')
-            },
-            {
-                elementId: 'cte-review-btn',
-                eventType: 'click',
-                callback: this.reviewChineseToEnglishErrors
             },
             {
                 elementId: 'cte-back-to-mode-btn',
@@ -1768,6 +1801,11 @@ const Wordskr = {
                 callback: this.goToPreviousAdvancedTrainingWord
             },
             {
+                elementId: 'at-forgot-btn',
+                eventType: 'click',
+                callback: () => this.handleAdvancedTrainingForgotAnswer()
+            },
+            {
                 elementId: 'at-next-btn',
                 eventType: 'click',
                 callback: this.goToNextAdvancedTrainingWord
@@ -1950,6 +1988,88 @@ const Wordskr = {
         
         speechSynthesis.speak(utterance);
     },
+
+    // 停止语音播放
+    stopSpeech() {
+        if ('speechSynthesis' in window) {
+            speechSynthesis.cancel();
+        }
+    },
+
+    // 为可点击文本添加语音播放功能
+    addSpeechClickEvents() {
+        // 进阶训练 - 例句训练
+        const atTargetWord = document.getElementById('at-target-word');
+        if (atTargetWord) {
+            atTargetWord.style.cursor = 'pointer';
+            atTargetWord.style.userSelect = 'none';
+            atTargetWord.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = atTargetWord.textContent.trim();
+                if (text && text !== '加载中...') {
+                    this.speakWord(text);
+                }
+            });
+        }
+
+        // 进阶训练 - 释义挑选
+        const atMeaningWord = document.getElementById('at-meaning-word');
+        if (atMeaningWord) {
+            atMeaningWord.style.cursor = 'pointer';
+            atMeaningWord.style.userSelect = 'none';
+            atMeaningWord.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = atMeaningWord.textContent.trim();
+                if (text && text !== '加载中...') {
+                    this.speakWord(text);
+                }
+            });
+        }
+
+        // 汉语提示拼写
+        const cteChineseMeaning = document.getElementById('cte-chinese-meaning');
+        if (cteChineseMeaning) {
+            cteChineseMeaning.style.cursor = 'pointer';
+            cteChineseMeaning.style.userSelect = 'none';
+            cteChineseMeaning.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentWord = this.state.session.words[this.state.session.currentIndex];
+                if (currentWord) {
+                    const englishList = currentWord.englishList || [currentWord.english];
+                    this.speakWord(englishList[0]);
+                }
+            });
+        }
+
+        // 英文选汉语
+        const etcEnglishWord = document.getElementById('etc-english-word');
+        if (etcEnglishWord) {
+            etcEnglishWord.style.cursor = 'pointer';
+            etcEnglishWord.style.userSelect = 'none';
+            etcEnglishWord.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const text = etcEnglishWord.textContent.trim();
+                if (text && text !== '加载中...') {
+                    this.speakWord(text);
+                }
+            });
+        }
+
+        // 汉语选英文
+        const ctecChineseMeaning = document.getElementById('ctec-chinese-meaning');
+        if (ctecChineseMeaning) {
+            ctecChineseMeaning.style.cursor = 'pointer';
+            ctecChineseMeaning.style.userSelect = 'none';
+            ctecChineseMeaning.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentWord = this.state.session.words[this.state.session.currentIndex];
+                if (currentWord) {
+                    const englishList = currentWord.englishList || [currentWord.english];
+                    this.speakWord(englishList[0]);
+                }
+            });
+        }
+    },
     
     // 检查语音合成是否可用
     isSpeechSupported() {
@@ -2056,6 +2176,9 @@ const Wordskr = {
     // 通用导航函数
     goToPreviousWord(updateUIFunction) {
         if (this.state.session.currentIndex > 0) {
+            // 停止当前语音播放
+            this.stopSpeech();
+            
             this.state.session.currentIndex--;
             updateUIFunction.call(this);
         }
@@ -2063,6 +2186,9 @@ const Wordskr = {
 
     // 通用导航函数
     goToNextWord(updateUIFunction) {
+        // 停止当前语音播放
+        this.stopSpeech();
+        
         // 增加已回答问题数量
         this.state.session.questionsAnswered++;
         
@@ -2280,6 +2406,10 @@ const Wordskr = {
         document.getElementById('cte-chinese-meaning').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
         document.getElementById('cte-english-input').value = '';
         
+        // 题目呈现时自动播放语音
+        const englishList = currentWord.englishList || [currentWord.english];
+        this.speakWord(englishList[0]);
+        
         // 检查当前单词是否已经被回答过
         const answerKey = this.getAnswerKey(currentWord.id);
         const answeredStatus = this.state.session.answeredWords[answerKey];
@@ -2425,6 +2555,9 @@ const Wordskr = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         const englishDisplay = this.getEnglishDisplay(currentWord);
         document.getElementById('etc-english-word').textContent = englishDisplay;
+        
+        // 题目呈现时自动播放语音
+        this.speakWord(englishDisplay);
         
         const options = this.generateOptions(currentWord, 'chinese');
         this.generateOptionButtons(options, 'etc-options', this.selectEnglishToChineseOption);
@@ -2711,6 +2844,10 @@ const Wordskr = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('ctec-chinese-meaning').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
         
+        // 题目呈现时自动播放语音
+        const englishList = currentWord.englishList || [currentWord.english];
+        this.speakWord(englishList[0]);
+        
         const options = this.generateOptions(currentWord, 'english');
         this.generateOptionButtons(options, 'ctec-options', this.selectChineseToEnglishChoiceOption);
         
@@ -2978,6 +3115,10 @@ const Wordskr = {
             document.getElementById('ct-check-btn').classList.remove('hidden');
             document.getElementById('ct-check-btn').disabled = false;
             
+            // 题目呈现时自动播放语音
+            const englishList = currentWord.englishList || [currentWord.english];
+            this.speakWord(englishList[0]);
+            
             // 重置输入框状态
             const inputElement = document.getElementById('ct-input');
             inputElement.value = '';
@@ -2990,8 +3131,13 @@ const Wordskr = {
             if (currentQuestion.mode === 'english-to-chinese') {
                 const englishDisplay = this.getEnglishDisplay(currentWord);
                 document.getElementById('ct-question-content').textContent = englishDisplay;
+                // 题目呈现时自动播放语音
+                this.speakWord(englishDisplay);
             } else {
                 document.getElementById('ct-question-content').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
+                // 题目呈现时自动播放语音
+                const englishList = currentWord.englishList || [currentWord.english];
+                this.speakWord(englishList[0]);
             }
             document.getElementById('ct-options').classList.remove('hidden');
             document.getElementById('ct-input-container').classList.add('hidden');
@@ -3338,6 +3484,9 @@ const Wordskr = {
     // 前往上一个综合训练问题
     goToPreviousComprehensiveTrainingQuestion() {
         if (this.state.comprehensive.currentIndex > 0) {
+            // 停止当前语音播放
+            this.stopSpeech();
+            
             this.state.comprehensive.currentIndex--;
             this.updateComprehensiveTrainingUI();
         }
@@ -3345,6 +3494,9 @@ const Wordskr = {
 
     // 前往下一个综合训练问题
     goToNextComprehensiveTrainingQuestion() {
+        // 停止当前语音播放
+        this.stopSpeech();
+        
         this.state.comprehensive.currentIndex++;
         this.updateComprehensiveTrainingUI();
     },
@@ -3695,13 +3847,14 @@ const Wordskr = {
         
         // 创建新的训练题目
         const retryQuestions = [];
-        const modes = ['chinese-to-english', 'english-to-chinese', 'chinese-to-english-choice'];
         
         uniqueWords.forEach(word => {
-            const mode = modes[Math.floor(Math.random() * modes.length)];
+            // 固定使用chinese-to-english模式，提供汉语释义，要求拼写英语单词
+            const mode = 'chinese-to-english';
             retryQuestions.push({
                 wordId: word.id,
-                mode: mode
+                mode: mode,
+                isRepeat: true // 标记为重复练习，确保显示可作答状态
             });
         });
         
@@ -3966,6 +4119,122 @@ const Wordskr = {
         const accuracySelector = type === 'etc' ? '#etc-accuracy-text' : (type === 'ctec' ? '#ctec-accuracy-text' : '#cte-accuracy-text');
         document.getElementById(accuracySelector.replace('#', '')).textContent = `正确率: ${accuracy}%`;
         
+        this.speakWord(speakText);
+    },
+
+    // 处理进阶训练模式的忘记答案
+    handleAdvancedTrainingForgotAnswer() {
+        const currentQuestion = this.state.session.questions[this.state.session.currentIndex];
+        const currentWord = currentQuestion.word;
+        if (!currentWord) {
+            console.error('找不到当前单词:', currentQuestion);
+            return;
+        }
+
+        const wordId = currentWord.id;
+        const currentModule = this.state.session.currentModule;
+        
+        // 确定正确答案和反馈内容
+        let correctAnswer;
+        let feedbackHTML;
+        
+        if (currentModule === 'example') {
+            // 例句训练模式
+            correctAnswer = currentQuestion.meaning;
+            
+            // 高亮正确选项
+            const optionButtons = document.querySelectorAll('#at-example-options button');
+            const correctButton = Array.from(optionButtons).find(btn => 
+                btn.getAttribute('data-option') === correctAnswer
+            );
+            
+            if (correctButton) {
+                correctButton.classList.add('correct-option');
+                correctButton.style.backgroundColor = '#10b981';
+                correctButton.style.color = 'white';
+                correctButton.style.borderColor = '#059669';
+            }
+            
+            // 禁用所有选项
+            optionButtons.forEach(btn => {
+                btn.disabled = true;
+            });
+            
+            feedbackHTML = `
+                <div class="flex items-center">
+                    <i class="fa fa-check-circle text-green-500 text-xl mr-2"></i>
+                    <span>正确答案是: <strong>${correctAnswer}</strong></span>
+                </div>
+            `;
+        } else if (currentModule === 'meaning') {
+            // 释义挑选模式
+            correctAnswer = currentQuestion.meanings;
+            
+            // 高亮正确选项
+            const optionButtons = document.querySelectorAll('#at-meaning-options button');
+            optionButtons.forEach(btn => {
+                const optionValue = btn.getAttribute('data-option');
+                if (correctAnswer.includes(optionValue)) {
+                    btn.classList.add('correct-option');
+                    btn.style.backgroundColor = '#10b981';
+                    btn.style.color = 'white';
+                    btn.style.borderColor = '#059669';
+                }
+                btn.disabled = true;
+            });
+            
+            // 禁用提交按钮
+            const submitBtn = document.getElementById('at-submit-btn');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+            
+            feedbackHTML = `
+                <div class="flex items-center">
+                    <i class="fa fa-check-circle text-green-500 text-xl mr-2"></i>
+                    <span>正确答案是: <strong>${correctAnswer.join('、')}</strong></span>
+                </div>
+            `;
+        }
+        
+        // 确定朗读文本：总是朗读英文单词
+        const englishList = currentWord.englishList || [currentWord.english];
+        const speakText = englishList[0];
+        
+        // 更新单词状态
+        this.updateWordStatus(wordId, false, 'advanced-training');
+        this.state.session.incorrectCount++;
+        
+        // 存储答题状态（标记为忘记）
+        const answerKey = currentModule === 'example' ? 
+            `${wordId}_${currentQuestion.meaning}_${currentQuestion.example}` : 
+            `${wordId}_meaning`;
+        
+        this.state.session.answeredWords[answerKey] = {
+            isCorrect: false,
+            correctAnswer: correctAnswer,
+            userAnswer: null,
+            type: 'advanced-training',
+            module: currentModule,
+            isForgot: true
+        };
+        
+        // 显示反馈
+        const feedbackElement = document.getElementById('at-feedback');
+        feedbackElement.classList.remove('hidden');
+        feedbackElement.className = 'correct-feedback mb-6';
+        feedbackElement.innerHTML = feedbackHTML;
+        
+        // 更新按钮状态
+        document.getElementById('at-forgot-btn').disabled = true;
+        document.getElementById('at-next-btn').disabled = false;
+        
+        // 更新正确率显示
+        const totalAnswered = this.state.session.correctCount + this.state.session.incorrectCount;
+        const accuracy = totalAnswered > 0 ? Math.round((this.state.session.correctCount / totalAnswered) * 100) : 0;
+        document.getElementById('at-accuracy-text').textContent = `正确率: ${accuracy}%`;
+        
+        // 朗读正确答案
         this.speakWord(speakText);
     },
 
