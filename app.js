@@ -623,9 +623,6 @@ const Wordskr = {
         const options = this.generateAdvancedTrainingOptions(currentWord, selectedMeaning);
         this.generateOptionButtons(options, 'at-example-options', this.selectAdvancedTrainingOption);
 
-        // 自动朗读例句
-        this.speakWord(exampleSentence);
-
         // 检查当前问题是否已经被回答过
         const answerKey = `${currentWord.id}_${selectedMeaning}_${exampleSentence}`;
         const answeredStatus = this.state.session.answeredWords[answerKey];
@@ -650,7 +647,7 @@ const Wordskr = {
 
             // 禁用所有选项按钮
             optionButtons.forEach(btn => {
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
                 btn.style.cursor = 'not-allowed';
                 btn.style.opacity = '0.7';
                 if (btn.getAttribute('data-option') === correctAnswer) {
@@ -691,9 +688,6 @@ const Wordskr = {
         const correctMeanings = currentQuestion.meanings;
 
         document.getElementById('at-meaning-word').textContent = currentWord.english;
-
-        // 自动朗读单词
-        this.speakWord(currentWord.english);
 
         // 生成选项
         const options = this.generateMeaningTrainingOptions(currentWord, correctMeanings);
@@ -880,7 +874,7 @@ const Wordskr = {
 
         // 立即锁定所有选项按钮，防止用户修改答案
         optionButtons.forEach(btn => {
-            btn.disabled = true;
+            btn.classList.add('option-disabled');
             btn.style.cursor = 'not-allowed';
             btn.style.opacity = '0.7';
         });
@@ -1296,9 +1290,15 @@ const Wordskr = {
     getEnglishDisplay(word) {
         if (!word) return '';
         
-        // 如果有多个英文形式，返回第一个
+        // 如果有多个英文形式，返回所有形式用 " / " 连接
         if (word.englishList && word.englishList.length > 0) {
-            return word.englishList[0];
+            const validEnglishList = word.englishList
+                .map(item => typeof item === 'string' ? item : '')
+                .filter(item => item.trim() !== '');
+            if (validEnglishList.length > 1) {
+                return validEnglishList.join(' / ');
+            }
+            return validEnglishList[0];
         }
         
         // 否则返回单个英文形式
@@ -1410,6 +1410,7 @@ const Wordskr = {
                 else if (pageId.startsWith('nav-')) {
                     pageId = pageId.replace('nav-', '') + '-page';
                 }
+                this.state.session.isReviewMode = false;
                 this.showPage(pageId);
                 this.updateNavigationState(pageId);
                 
@@ -1542,6 +1543,7 @@ const Wordskr = {
                 elementId: 'exit-cte-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1570,6 +1572,7 @@ const Wordskr = {
                 elementId: 'cte-back-to-mode-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1602,6 +1605,7 @@ const Wordskr = {
                 elementId: 'exit-etc-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1630,6 +1634,7 @@ const Wordskr = {
                 elementId: 'etc-back-to-mode-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1644,6 +1649,7 @@ const Wordskr = {
                 elementId: 'exit-ctec-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1667,6 +1673,7 @@ const Wordskr = {
                 elementId: 'ctec-back-to-mode-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1686,6 +1693,7 @@ const Wordskr = {
                 elementId: 'exit-ct-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1759,6 +1767,7 @@ const Wordskr = {
                 elementId: 'ct-back-to-mode-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1791,6 +1800,7 @@ const Wordskr = {
                 elementId: 'exit-at-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -1819,6 +1829,7 @@ const Wordskr = {
                 elementId: 'at-back-to-mode-btn',
                 eventType: 'click',
                 callback: () => {
+                    this.state.session.isReviewMode = false;
                     this.showPage('mode-page');
                     this.updateNavigationState('mode-page');
                 }
@@ -2005,9 +2016,16 @@ const Wordskr = {
             atTargetWord.style.userSelect = 'none';
             atTargetWord.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const text = atTargetWord.textContent.trim();
-                if (text && text !== '加载中...') {
-                    this.speakWord(text);
+                const currentQuestion = this.state.session.questions[this.state.session.currentIndex];
+                if (currentQuestion) {
+                    const answerKey = `${currentQuestion.word.id}_${currentQuestion.meaning}_${currentQuestion.example}`;
+                    const answeredStatus = this.state.session.answeredWords[answerKey];
+                    if (answeredStatus) {
+                        const text = atTargetWord.textContent.trim();
+                        if (text && text !== '加载中...') {
+                            this.speakWord(text);
+                        }
+                    }
                 }
             });
         }
@@ -2019,9 +2037,16 @@ const Wordskr = {
             atMeaningWord.style.userSelect = 'none';
             atMeaningWord.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const text = atMeaningWord.textContent.trim();
-                if (text && text !== '加载中...') {
-                    this.speakWord(text);
+                const currentQuestion = this.state.session.questions[this.state.session.currentIndex];
+                if (currentQuestion) {
+                    const answerKey = `${currentQuestion.word.id}_meaning`;
+                    const answeredStatus = this.state.session.answeredWords[answerKey];
+                    if (answeredStatus) {
+                        const text = atMeaningWord.textContent.trim();
+                        if (text && text !== '加载中...') {
+                            this.speakWord(text);
+                        }
+                    }
                 }
             });
         }
@@ -2033,10 +2058,13 @@ const Wordskr = {
             cteChineseMeaning.style.userSelect = 'none';
             cteChineseMeaning.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const currentWord = this.state.session.words[this.state.session.currentIndex];
-                if (currentWord) {
-                    const englishList = currentWord.englishList || [currentWord.english];
-                    this.speakWord(englishList[0]);
+                const inputElement = document.getElementById('cte-english-input');
+                if (inputElement && inputElement.disabled) {
+                    const currentWord = this.state.session.words[this.state.session.currentIndex];
+                    if (currentWord) {
+                        const englishList = currentWord.englishList || [currentWord.english];
+                        this.speakWord(englishList[0]);
+                    }
                 }
             });
         }
@@ -2048,9 +2076,12 @@ const Wordskr = {
             etcEnglishWord.style.userSelect = 'none';
             etcEnglishWord.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const text = etcEnglishWord.textContent.trim();
-                if (text && text !== '加载中...') {
-                    this.speakWord(text);
+                const optionButtons = document.querySelectorAll('#etc-options button');
+                if (optionButtons.length > 0 && optionButtons[0].disabled) {
+                    const text = etcEnglishWord.textContent.trim();
+                    if (text && text !== '加载中...') {
+                        this.speakWord(text);
+                    }
                 }
             });
         }
@@ -2062,10 +2093,35 @@ const Wordskr = {
             ctecChineseMeaning.style.userSelect = 'none';
             ctecChineseMeaning.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const currentWord = this.state.session.words[this.state.session.currentIndex];
-                if (currentWord) {
-                    const englishList = currentWord.englishList || [currentWord.english];
-                    this.speakWord(englishList[0]);
+                const optionButtons = document.querySelectorAll('#ctec-options button');
+                if (optionButtons.length > 0 && optionButtons[0].disabled) {
+                    const currentWord = this.state.session.words[this.state.session.currentIndex];
+                    if (currentWord) {
+                        const englishList = currentWord.englishList || [currentWord.english];
+                        this.speakWord(englishList[0]);
+                    }
+                }
+            });
+        }
+
+        // 综合训练 - 题目内容
+        const ctQuestionContent = document.getElementById('ct-question-content');
+        if (ctQuestionContent) {
+            ctQuestionContent.style.cursor = 'pointer';
+            ctQuestionContent.style.userSelect = 'none';
+            ctQuestionContent.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const currentQuestion = this.state.comprehensive.questions[this.state.comprehensive.currentIndex];
+                if (currentQuestion) {
+                    const answerKey = this.getAnswerKey(currentQuestion.wordId);
+                    const answeredStatus = this.state.session.answeredWords[answerKey];
+                    if (answeredStatus) {
+                        const currentWord = this.state.words.list.find(word => word.id === currentQuestion.wordId);
+                        if (currentWord) {
+                            const englishList = currentWord.englishList || [currentWord.english];
+                            this.speakWord(englishList[0]);
+                        }
+                    }
                 }
             });
         }
@@ -2248,7 +2304,12 @@ const Wordskr = {
             return;
         }
         
-        this.state.session.words = [...errorWords];
+        // 清除isRepeat标记，确保复习模式下可以正常显示答案
+        this.state.session.words = errorWords.map(word => ({
+            ...word,
+            isRepeat: false
+        }));
+        this.state.session.isReviewMode = true;
         this.resetStudyState();
         updateUIFunction.call(this);
     },
@@ -2263,7 +2324,7 @@ const Wordskr = {
             optionButton.className = 'option-button';
             optionButton.innerHTML = option.replace(/\n/g, '<br>');
             optionButton.setAttribute('data-option', option);
-            optionButton.addEventListener('click', () => {
+            optionButton.addEventListener('click', (e) => {
                 callback.call(this, optionButton);
             });
             optionsElement.appendChild(optionButton);
@@ -2281,28 +2342,37 @@ const Wordskr = {
             optionButton.innerHTML = option.replace(/\n/g, '<br>');
             optionButton.setAttribute('data-option', option);
             optionButton.setAttribute('data-selected', 'false');
-            optionButton.addEventListener('click', () => {
-                // 切换选中状态
-                const isSelected = optionButton.getAttribute('data-selected') === 'true';
-                optionButton.setAttribute('data-selected', (!isSelected).toString());
-                
-                // 更新按钮样式
-                if (!isSelected) {
-                    optionButton.classList.add('selected-option');
-                    optionButton.style.backgroundColor = '#e0e7ff';
-                    optionButton.style.borderColor = '#6366f1';
+            optionButton.addEventListener('click', (e) => {
+                if (optionButton.classList.contains('option-disabled')) {
+                    // 已禁用：播放语音
+                    e.stopPropagation();
+                    const text = optionButton.getAttribute('data-option');
+                    if (text && text !== '加载中...') {
+                        this.speakWord(text);
+                    }
                 } else {
-                    optionButton.classList.remove('selected-option');
-                    optionButton.style.backgroundColor = '';
-                    optionButton.style.borderColor = '';
-                }
-                
-                // 检查是否有选项被选中，启用提交按钮
-                const selectedOptions = Array.from(optionsElement.querySelectorAll('button'))
-                    .filter(btn => btn.getAttribute('data-selected') === 'true');
-                const submitBtn = document.getElementById('at-submit-btn');
-                if (submitBtn) {
-                    submitBtn.disabled = selectedOptions.length === 0;
+                    // 切换选中状态
+                    const isSelected = optionButton.getAttribute('data-selected') === 'true';
+                    optionButton.setAttribute('data-selected', (!isSelected).toString());
+                    
+                    // 更新按钮样式
+                    if (!isSelected) {
+                        optionButton.classList.add('selected-option');
+                        optionButton.style.backgroundColor = '#e0e7ff';
+                        optionButton.style.borderColor = '#6366f1';
+                    } else {
+                        optionButton.classList.remove('selected-option');
+                        optionButton.style.backgroundColor = '';
+                        optionButton.style.borderColor = '';
+                    }
+                    
+                    // 检查是否有选项被选中，启用提交按钮
+                    const selectedOptions = Array.from(optionsElement.querySelectorAll('button'))
+                        .filter(btn => btn.getAttribute('data-selected') === 'true');
+                    const submitBtn = document.getElementById('at-submit-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = selectedOptions.length === 0;
+                    }
                 }
             });
             optionsElement.appendChild(optionButton);
@@ -2358,7 +2428,7 @@ const Wordskr = {
     },
 
     // 通用选项反馈处理函数
-    handleOptionFeedback(optionButtons, correctAnswer, selectedButton, isCorrect) {
+    handleOptionFeedback(optionButtons, correctAnswer, selectedButton, isCorrect, validAnswers = null) {
         if (isCorrect) {
             const correctButton = Array.from(optionButtons).find(btn => 
                 btn.getAttribute('data-option') === correctAnswer
@@ -2367,20 +2437,33 @@ const Wordskr = {
                 correctButton.classList.add('correct-option');
             }
         } else {
-            let correctButton = Array.from(optionButtons).find(btn => 
-                btn.getAttribute('data-option') === correctAnswer
-            );
+            let correctButton;
+            if (validAnswers && Array.isArray(validAnswers)) {
+                correctButton = Array.from(optionButtons).find(btn => 
+                    validAnswers.includes(btn.getAttribute('data-option'))
+                );
+            } else {
+                correctButton = Array.from(optionButtons).find(btn => 
+                    btn.getAttribute('data-option') === correctAnswer
+                );
+            }
+            
             if (correctButton) {
                 correctButton.classList.add('correct-option');
             }
             
-            if (selectedButton.getAttribute('data-option') !== correctAnswer) {
+            const selectedOption = selectedButton.getAttribute('data-option');
+            const isSelectedCorrect = validAnswers && Array.isArray(validAnswers) 
+                ? validAnswers.includes(selectedOption)
+                : selectedOption === correctAnswer;
+            
+            if (!isSelectedCorrect) {
                 selectedButton.classList.add('incorrect-option');
             }
         }
         
         optionButtons.forEach(btn => {
-            btn.disabled = true;
+            btn.classList.add('option-disabled');
         });
     },
 
@@ -2405,10 +2488,6 @@ const Wordskr = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('cte-chinese-meaning').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
         document.getElementById('cte-english-input').value = '';
-        
-        // 题目呈现时自动播放语音
-        const englishList = currentWord.englishList || [currentWord.english];
-        this.speakWord(englishList[0]);
         
         // 检查当前单词是否已经被回答过
         const answerKey = this.getAnswerKey(currentWord.id);
@@ -2509,6 +2588,9 @@ const Wordskr = {
         this.state.session.answeredWords[answerKey] = answerData;
         this.saveAnswerToStorage('cte', currentWord.id, answerData);
         
+        // 移除isRepeat标记，确保返回该题目时显示已完成状态
+        currentWord.isRepeat = false;
+        
         this.updateProgressAndAccuracy('cte', this.state.session.currentIndex, this.state.session.words.length, this.state.session.correctCount, this.state.session.incorrectCount);
         
         if (isCorrect) {
@@ -2556,9 +2638,6 @@ const Wordskr = {
         const englishDisplay = this.getEnglishDisplay(currentWord);
         document.getElementById('etc-english-word').textContent = englishDisplay;
         
-        // 题目呈现时自动播放语音
-        this.speakWord(englishDisplay);
-        
         const options = this.generateOptions(currentWord, 'chinese');
         this.generateOptionButtons(options, 'etc-options', this.selectEnglishToChineseOption);
         
@@ -2583,7 +2662,7 @@ const Wordskr = {
             
             // 禁用所有选项按钮
             optionButtons.forEach(btn => {
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
                 btn.style.cursor = 'not-allowed';
                 btn.style.opacity = '0.7';
                 if (btn.getAttribute('data-option') === correctAnswer) {
@@ -2602,12 +2681,14 @@ const Wordskr = {
             });
             
             document.getElementById('etc-next-btn').disabled = false;
+            document.getElementById('etc-forgot-btn').disabled = true;
             
             // 显示反馈
             this.showFeedback('etc-feedback', answeredStatus.isCorrect, answeredStatus.correctAnswer);
         } else {
             // 未回答过，或者是重复练习，显示为初始状态（允许用户作答）
             document.getElementById('etc-next-btn').disabled = true;
+            document.getElementById('etc-forgot-btn').disabled = false;
         }
         
         document.getElementById('etc-word-card').classList.remove('hidden');
@@ -2765,7 +2846,7 @@ const Wordskr = {
         
         // 立即锁定所有选项按钮，防止用户修改答案
         optionButtons.forEach(btn => {
-            btn.disabled = true;
+            btn.classList.add('option-disabled');
             btn.style.cursor = 'not-allowed';
             btn.style.opacity = '0.7';
         });
@@ -2782,6 +2863,9 @@ const Wordskr = {
         
         // 保存到localStorage实现数据持久化
         this.saveAnswerToStorage('etc', currentWord.id, answerData);
+        
+        // 移除isRepeat标记，确保返回该题目时显示已完成状态
+        currentWord.isRepeat = false;
         
         const englishList = currentWord.englishList || [currentWord.english];
         const displayAnswer = englishList[0];
@@ -2844,12 +2928,30 @@ const Wordskr = {
         const currentWord = this.state.session.words[this.state.session.currentIndex];
         document.getElementById('ctec-chinese-meaning').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
         
-        // 题目呈现时自动播放语音
-        const englishList = currentWord.englishList || [currentWord.english];
-        this.speakWord(englishList[0]);
-        
         const options = this.generateOptions(currentWord, 'english');
-        this.generateOptionButtons(options, 'ctec-options', this.selectChineseToEnglishChoiceOption);
+        
+        // 为CTEC模式生成选项按钮，支持点击发声
+        const optionsElement = document.getElementById('ctec-options');
+        optionsElement.innerHTML = '';
+        
+        options.forEach(option => {
+            const optionButton = document.createElement('button');
+            optionButton.className = 'option-button';
+            optionButton.innerHTML = option.replace(/\n/g, '<br>');
+            optionButton.setAttribute('data-option', option);
+            optionButton.addEventListener('click', (e) => {
+                if (optionButton.classList.contains('option-disabled')) {
+                    e.stopPropagation();
+                    const text = optionButton.getAttribute('data-option');
+                    if (text && text !== '加载中...') {
+                        this.speakWord(text);
+                    }
+                } else {
+                    this.selectChineseToEnglishChoiceOption(optionButton);
+                }
+            });
+            optionsElement.appendChild(optionButton);
+        });
         
         // 检查当前单词是否已经被回答过
         const answerKey = this.getAnswerKey(currentWord.id);
@@ -2936,10 +3038,10 @@ const Wordskr = {
         this.showFeedback('ctec-feedback', isCorrect, displayAnswer);
         
         const optionButtons = document.querySelectorAll('#ctec-options button');
-        this.handleOptionFeedback(optionButtons, displayAnswer, button, isCorrect);
+        this.handleOptionFeedback(optionButtons, displayAnswer, button, isCorrect, validEnglishList);
         
         optionButtons.forEach(btn => {
-            btn.disabled = true;
+            btn.classList.add('option-disabled');
             btn.style.cursor = 'not-allowed';
             btn.style.opacity = '0.7';
         });
@@ -2954,6 +3056,9 @@ const Wordskr = {
         };
         this.state.session.answeredWords[answerKey] = answerData;
         this.saveAnswerToStorage('ctec', currentWord.id, answerData);
+        
+        // 移除isRepeat标记，确保返回该题目时显示已完成状态
+        currentWord.isRepeat = false;
         
         if (isCorrect) {
             const correctButton = Array.from(optionButtons).find(btn => 
@@ -3115,10 +3220,6 @@ const Wordskr = {
             document.getElementById('ct-check-btn').classList.remove('hidden');
             document.getElementById('ct-check-btn').disabled = false;
             
-            // 题目呈现时自动播放语音
-            const englishList = currentWord.englishList || [currentWord.english];
-            this.speakWord(englishList[0]);
-            
             // 重置输入框状态
             const inputElement = document.getElementById('ct-input');
             inputElement.value = '';
@@ -3131,13 +3232,8 @@ const Wordskr = {
             if (currentQuestion.mode === 'english-to-chinese') {
                 const englishDisplay = this.getEnglishDisplay(currentWord);
                 document.getElementById('ct-question-content').textContent = englishDisplay;
-                // 题目呈现时自动播放语音
-                this.speakWord(englishDisplay);
             } else {
                 document.getElementById('ct-question-content').innerHTML = this.getMergedChineseText(currentWord).replace(/\n/g, '<br>');
-                // 题目呈现时自动播放语音
-                const englishList = currentWord.englishList || [currentWord.english];
-                this.speakWord(englishList[0]);
             }
             document.getElementById('ct-options').classList.remove('hidden');
             document.getElementById('ct-input-container').classList.add('hidden');
@@ -3152,8 +3248,16 @@ const Wordskr = {
                 optionButton.className = 'option-button';
                 optionButton.innerHTML = option.replace(/\n/g, '<br>');
                 optionButton.setAttribute('data-option', option);
-                optionButton.addEventListener('click', () => {
-                    this.selectComprehensiveTrainingOption(optionButton, currentQuestion, currentWord);
+                optionButton.addEventListener('click', (e) => {
+                    if (currentQuestion.mode === 'chinese-to-english-choice' && optionButton.classList.contains('option-disabled')) {
+                        e.stopPropagation();
+                        const text = optionButton.getAttribute('data-option');
+                        if (text && text !== '加载中...') {
+                            this.speakWord(text);
+                        }
+                    } else {
+                        this.selectComprehensiveTrainingOption(optionButton, currentQuestion, currentWord);
+                    }
                 });
                 optionsElement.appendChild(optionButton);
             });
@@ -3208,7 +3312,7 @@ const Wordskr = {
                 
                 // 禁用所有选项按钮
                 optionButtons.forEach(btn => {
-                    btn.disabled = true;
+                    btn.classList.add('option-disabled');
                     btn.style.cursor = 'not-allowed';
                     btn.style.opacity = '0.7';
                     if (btn.getAttribute('data-option') === correctAnswer) {
@@ -3314,12 +3418,12 @@ const Wordskr = {
                 </div>
             `;
             
+            this.handleOptionFeedback(optionButtons, displayAnswer, button, isCorrect, correctAnswers);
+            
             const correctButton = Array.from(optionButtons).find(btn => 
                 btn.getAttribute('data-option') === displayAnswer
             );
             if (correctButton) {
-                correctButton.classList.add('correct-option');
-                
                 this.speakWord(speakText, () => {
                     setTimeout(() => {
                         correctButton.style.transform = 'scale(1)';
@@ -3344,16 +3448,7 @@ const Wordskr = {
                 </div>
             `;
             
-            let correctButton = Array.from(optionButtons).find(btn => 
-                btn.getAttribute('data-option') === displayAnswer
-            );
-            if (correctButton) {
-                correctButton.classList.add('correct-option');
-            }
-            
-            if (button.getAttribute('data-option') !== displayAnswer) {
-                button.classList.add('incorrect-option');
-            }
+            this.handleOptionFeedback(optionButtons, displayAnswer, button, isCorrect, correctAnswers);
             
             this.speakWord(speakText);
             
@@ -3361,7 +3456,7 @@ const Wordskr = {
         }
         
         optionButtons.forEach(btn => {
-            btn.disabled = true;
+            btn.classList.add('option-disabled');
         });
         
         // 存储答题状态
@@ -3377,6 +3472,9 @@ const Wordskr = {
         this.state.session.answeredWords[answerKey] = answerData;
         
         this.saveAnswerToStorage('comprehensive', currentWord.id, answerData);
+        
+        // 移除isRepeat标记，确保返回该题目时显示已完成状态
+        currentQuestion.isRepeat = false;
         
         if (!isCorrect) {
             document.getElementById('ct-next-btn').disabled = false;
@@ -3958,7 +4056,7 @@ const Wordskr = {
             }
             
             optionButtons.forEach(btn => {
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
             });
         } 
         // 处理输入模式（汉语提示拼写）
@@ -4057,7 +4155,7 @@ const Wordskr = {
             }
             
             optionButtons.forEach(btn => {
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
             });
         } 
         // 处理输入模式（汉语提示拼写）
@@ -4157,7 +4255,7 @@ const Wordskr = {
             
             // 禁用所有选项
             optionButtons.forEach(btn => {
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
             });
             
             feedbackHTML = `
@@ -4180,7 +4278,7 @@ const Wordskr = {
                     btn.style.color = 'white';
                     btn.style.borderColor = '#059669';
                 }
-                btn.disabled = true;
+                btn.classList.add('option-disabled');
             });
             
             // 禁用提交按钮
