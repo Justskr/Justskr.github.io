@@ -879,6 +879,12 @@ const Wordskr = {
             btn.style.opacity = '0.7';
         });
 
+        // 禁用"我有点忘了"按钮
+        const forgotBtn = document.getElementById('at-forgot-btn');
+        if (forgotBtn) {
+            forgotBtn.disabled = true;
+        }
+
         // 存储答题状态
         const answerKey = `${currentWord.id}_${correctAnswer}_${currentQuestion.example}`;
         const answerData = {
@@ -989,6 +995,12 @@ const Wordskr = {
         const submitBtn = document.getElementById('at-submit-btn');
         if (submitBtn) {
             submitBtn.disabled = true;
+        }
+
+        // 禁用"我有点忘了"按钮
+        const forgotBtn = document.getElementById('at-forgot-btn');
+        if (forgotBtn) {
+            forgotBtn.disabled = true;
         }
 
         if (isCorrect) {
@@ -1747,11 +1759,6 @@ const Wordskr = {
                 elementId: 'ct-check-btn',
                 eventType: 'click',
                 callback: this.checkComprehensiveTrainingAnswer
-            },
-            {
-                elementId: 'ct-forgot-btn',
-                eventType: 'click',
-                callback: () => this.handleComprehensiveForgotAnswer()
             },
             {
                 elementId: 'ct-review-btn',
@@ -2681,14 +2688,24 @@ const Wordskr = {
             });
             
             document.getElementById('etc-next-btn').disabled = false;
-            document.getElementById('etc-forgot-btn').disabled = true;
+            
+            // 禁用"我有点忘了"按钮
+            const forgotBtn = document.getElementById('etc-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = true;
+            }
             
             // 显示反馈
             this.showFeedback('etc-feedback', answeredStatus.isCorrect, answeredStatus.correctAnswer);
         } else {
             // 未回答过，或者是重复练习，显示为初始状态（允许用户作答）
             document.getElementById('etc-next-btn').disabled = true;
-            document.getElementById('etc-forgot-btn').disabled = false;
+            
+            // 启用"我有点忘了"按钮
+            const forgotBtn = document.getElementById('etc-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = false;
+            }
         }
         
         document.getElementById('etc-word-card').classList.remove('hidden');
@@ -2851,6 +2868,12 @@ const Wordskr = {
             btn.style.opacity = '0.7';
         });
         
+        // 禁用"我有点忘了"按钮
+        const forgotBtn = document.getElementById('etc-forgot-btn');
+        if (forgotBtn) {
+            forgotBtn.disabled = true;
+        }
+        
         // 存储答题状态
         const answerKey = this.getAnswerKey(currentWord.id);
         const answerData = {
@@ -2993,14 +3016,24 @@ const Wordskr = {
             });
             
             document.getElementById('ctec-next-btn').disabled = false;
-            document.getElementById('ctec-forgot-btn').disabled = true;
+            
+            // 禁用"我有点忘了"按钮
+            const forgotBtn = document.getElementById('ctec-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = true;
+            }
             
             // 显示反馈
             this.showFeedback('ctec-feedback', answeredStatus.isCorrect, answeredStatus.correctAnswer);
         } else {
             // 未回答过，或者是重复练习，显示为初始状态（允许用户作答）
             document.getElementById('ctec-next-btn').disabled = true;
-            document.getElementById('ctec-forgot-btn').disabled = false;
+            
+            // 启用"我有点忘了"按钮
+            const forgotBtn = document.getElementById('ctec-forgot-btn');
+            if (forgotBtn) {
+                forgotBtn.disabled = false;
+            }
         }
         
         document.getElementById('ctec-word-card').classList.remove('hidden');
@@ -3045,6 +3078,12 @@ const Wordskr = {
             btn.style.cursor = 'not-allowed';
             btn.style.opacity = '0.7';
         });
+        
+        // 禁用"我有点忘了"按钮
+        const forgotBtn = document.getElementById('ctec-forgot-btn');
+        if (forgotBtn) {
+            forgotBtn.disabled = true;
+        }
         
         const answerKey = this.getAnswerKey(currentWord.id);
         const answerData = {
@@ -3284,12 +3323,6 @@ const Wordskr = {
         
         if (answeredStatus && !isRepeat) {
             // 已回答过且不是重复练习，显示为已回答状态（锁定答案区域）
-            // 隐藏忘记按钮
-            const forgotBtn = document.getElementById('ct-forgot-btn');
-            if (forgotBtn) {
-                forgotBtn.classList.add('hidden');
-                forgotBtn.disabled = true;
-            }
             
             if (currentQuestion.mode === 'chinese-to-english') {
                 // 汉语提示拼写模式
@@ -3338,13 +3371,6 @@ const Wordskr = {
         } else {
             // 未回答过，或者是重复练习，显示为初始状态（允许用户作答）
             document.getElementById('ct-next-btn').disabled = true;
-            
-            // 显示忘记按钮（仅在未回答过时）
-            const forgotBtn = document.getElementById('ct-forgot-btn');
-            if (forgotBtn) {
-                forgotBtn.classList.remove('hidden');
-                forgotBtn.disabled = false;
-            }
         }
     },
 
@@ -3602,12 +3628,31 @@ const Wordskr = {
     // 显示综合训练结果
     showComprehensiveTrainingResult() {
         const totalQuestions = this.state.comprehensive.questions.length;
-        const correctCount = this.state.comprehensive.correctCount;
-        const score = Math.round((correctCount / totalQuestions) * 100);
+        const correctCount = this.state.comprehensive.correctCount || 0;
+        const incorrectCount = this.state.comprehensive.incorrectCount || 0;
+        
+        // 计算实际已回答的题目数量
+        const totalAnswered = correctCount + incorrectCount;
+        
+        // 数据验证：确保正确数和错误数不超过总题目数
+        const validatedCorrectCount = Math.min(correctCount, totalQuestions);
+        const validatedIncorrectCount = Math.min(incorrectCount, totalQuestions);
+        const validatedTotalAnswered = validatedCorrectCount + validatedIncorrectCount;
+        
+        // 计算正确率：正确数 ÷ 已回答总数 × 100%
+        // 边界条件处理：如果没有回答任何题目，正确率为0
+        let score = 0;
+        if (validatedTotalAnswered > 0) {
+            score = Math.round((validatedCorrectCount / validatedTotalAnswered) * 100);
+        }
+        
+        // 确保正确率在0-100%范围内
+        score = Math.max(0, Math.min(100, score));
         
         // 计算训练时长
         const endTime = new Date().getTime();
-        const duration = endTime - this.state.comprehensive.startTime;
+        const startTime = this.state.comprehensive.startTime || endTime;
+        const duration = Math.max(0, endTime - startTime);
         const minutes = Math.floor(duration / 60000);
         const seconds = Math.floor((duration % 60000) / 1000);
         const formattedDuration = `${minutes}分${seconds}秒`;
@@ -3616,7 +3661,7 @@ const Wordskr = {
         document.getElementById('ct-result-section').classList.remove('hidden');
         
         document.getElementById('ct-total-count').textContent = totalQuestions;
-        document.getElementById('ct-correct-count').textContent = correctCount;
+        document.getElementById('ct-correct-count').textContent = validatedCorrectCount;
         document.getElementById('ct-score').textContent = score;
         
         const cteCount = this.state.comprehensive.questions.filter(q => q.mode === 'chinese-to-english').length;
@@ -3667,25 +3712,37 @@ const Wordskr = {
 
     // 显示详细统计
     showDetailedStatistics(errorDistribution) {
+        const totalQuestions = this.state.comprehensive.questions.length;
+        const correctCount = this.state.comprehensive.correctCount || 0;
+        const incorrectCount = this.state.comprehensive.incorrectCount || 0;
+        const totalAnswered = correctCount + incorrectCount;
+        
+        // 数据验证
+        const validatedCorrectCount = Math.min(correctCount, totalQuestions);
+        const validatedIncorrectCount = Math.min(incorrectCount, totalQuestions);
+        const validatedTotalAnswered = validatedCorrectCount + validatedIncorrectCount;
+        
+        // 计算错误率：错误数 ÷ 已回答总数 × 100%
         const errorRateElement = document.getElementById('ct-error-rate');
         if (errorRateElement) {
-            const totalQuestions = this.state.comprehensive.questions.length;
-            const incorrectCount = this.state.comprehensive.incorrectCount;
-            const errorRate = totalQuestions > 0 
-                ? Math.round((incorrectCount / totalQuestions) * 100) 
-                : 0;
+            let errorRate = 0;
+            if (validatedTotalAnswered > 0) {
+                errorRate = Math.round((validatedIncorrectCount / validatedTotalAnswered) * 100);
+            }
+            // 确保错误率在0-100%范围内
+            errorRate = Math.max(0, Math.min(100, errorRate));
             errorRateElement.textContent = `${errorRate}%`;
         }
         
         // 计算并显示平均答题时间
         const avgTimeElement = document.getElementById('ct-avg-time');
         if (avgTimeElement) {
-            const totalQuestions = this.state.comprehensive.questions.length;
             const startTime = this.state.comprehensive.startTime;
-            const duration = startTime ? new Date().getTime() - startTime : 0;
-            const avgTime = totalQuestions > 0 
-                ? Math.round(duration / totalQuestions / 1000) 
-                : 0;
+            const duration = startTime ? Math.max(0, new Date().getTime() - startTime) : 0;
+            let avgTime = 0;
+            if (validatedTotalAnswered > 0) {
+                avgTime = Math.round(duration / validatedTotalAnswered / 1000);
+            }
             avgTimeElement.textContent = `${avgTime}秒`;
         }
         
@@ -3716,13 +3773,21 @@ const Wordskr = {
     // 渲染图表
     renderCharts(errorDistribution) {
         const totalQuestions = this.state.comprehensive.questions.length;
-        const correctCount = this.state.comprehensive.correctCount;
-        const incorrectCount = this.state.comprehensive.incorrectCount;
+        const correctCount = this.state.comprehensive.correctCount || 0;
+        const incorrectCount = this.state.comprehensive.incorrectCount || 0;
         
-        console.log('开始渲染图表:', { correctCount, incorrectCount, errorDistribution });
+        // 数据验证：确保数值在有效范围内
+        const validatedCorrectCount = Math.max(0, Math.min(correctCount, totalQuestions));
+        const validatedIncorrectCount = Math.max(0, Math.min(incorrectCount, totalQuestions));
         
-        // 渲染正确率饼图
-        this.renderAccuracyChart(correctCount, incorrectCount);
+        console.log('开始渲染图表:', { 
+            correctCount: validatedCorrectCount, 
+            incorrectCount: validatedIncorrectCount, 
+            errorDistribution 
+        });
+        
+        // 渲染正确率饼图（使用验证后的数据）
+        this.renderAccuracyChart(validatedCorrectCount, validatedIncorrectCount);
         
         // 渲染错误类型分布柱状图
         this.renderErrorDistributionChart(errorDistribution);
@@ -4012,117 +4077,6 @@ const Wordskr = {
         
         // 开始好友对战（固定10题，使用房间号作为随机种子）
         this.startComprehensiveTrainingExercise(10, roomNumber);
-    },
-
-    // 处理综合训练模式的忘记答案
-    handleComprehensiveForgotAnswer() {
-        const currentQuestion = this.state.comprehensive.questions[this.state.comprehensive.currentIndex];
-        const currentWord = this.state.words.list.find(word => word.id === currentQuestion.wordId);
-        if (!currentWord) {
-            console.error('找不到当前单词:', currentQuestion);
-            return;
-        }
-
-        const wordId = currentWord.id;
-        const mode = currentQuestion.mode;
-        
-        // 根据题型确定正确答案
-        let correctAnswer;
-        if (mode === 'chinese-to-english') {
-            correctAnswer = this.getEnglishDisplay(currentWord);
-        } else if (mode === 'english-to-chinese') {
-            correctAnswer = this.getMergedChineseText(currentWord);
-        } else {
-            const englishList = currentWord.englishList || [currentWord.english];
-            correctAnswer = englishList[0];
-        }
-
-        // 确定朗读文本：总是朗读英文单词
-        const englishList = currentWord.englishList || [currentWord.english];
-        const speakText = englishList[0];
-        
-        // 处理选择题模式
-        if (mode === 'english-to-chinese' || mode === 'chinese-to-english-choice') {
-            const optionButtons = document.querySelectorAll('#ct-options button');
-            const correctButton = Array.from(optionButtons).find(btn => 
-                btn.getAttribute('data-option') === correctAnswer
-            );
-            
-            if (correctButton) {
-                correctButton.classList.add('correct-option');
-                correctButton.style.backgroundColor = '#10b981';
-                correctButton.style.color = 'white';
-                correctButton.style.borderColor = '#059669';
-            }
-            
-            optionButtons.forEach(btn => {
-                btn.classList.add('option-disabled');
-            });
-        } 
-        // 处理输入模式（汉语提示拼写）
-        else if (mode === 'chinese-to-english') {
-            const inputElement = document.getElementById('ct-input');
-            inputElement.value = correctAnswer;
-            inputElement.disabled = true;
-            inputElement.style.backgroundColor = '#f3f4f6';
-            inputElement.style.cursor = 'not-allowed';
-            inputElement.style.opacity = '0.7';
-            document.getElementById('ct-check-btn').disabled = true;
-        }
-        
-        // 更新单词状态
-        this.updateWordStatus(wordId, false, mode);
-        this.state.comprehensive.incorrectCount++;
-        this.state.comprehensive.errors.push({
-            wordId: wordId,
-            english: currentWord.english,
-            englishList: currentWord.englishList,
-            chinese: currentWord.chinese,
-            mode: mode,
-            correctAnswer: correctAnswer,
-            userAnswer: null,
-            timestamp: new Date().getTime()
-        });
-        
-        // 存储答题状态（标记为忘记）
-        const answerKey = this.getAnswerKey(wordId);
-        const answerData = {
-            isCorrect: false,
-            correctAnswer: correctAnswer,
-            correctAnswers: mode === 'chinese-to-english' ? 
-                (currentWord.englishList || [currentWord.english]) : 
-                [correctAnswer],
-            userAnswer: null,
-            type: 'comprehensive',
-            mode: mode,
-            isForgot: true
-        };
-        this.state.session.answeredWords[answerKey] = answerData;
-        this.saveAnswerToStorage('comprehensive', wordId, answerData);
-        
-        // 显示反馈
-        const feedbackElement = document.getElementById('ct-feedback');
-        feedbackElement.classList.remove('hidden');
-        feedbackElement.className = 'correct-feedback mb-6';
-        feedbackElement.innerHTML = `
-            <div class="flex items-center">
-                <i class="fa fa-check-circle text-green-500 text-xl mr-2"></i>
-                <span>正确答案是: <strong>${correctAnswer}</strong></span>
-            </div>
-        `;
-        
-        // 更新按钮状态
-        document.getElementById('ct-forgot-btn').disabled = true;
-        document.getElementById('ct-forgot-btn').classList.add('hidden');
-        document.getElementById('ct-next-btn').disabled = false;
-        
-        // 更新正确率显示
-        const totalAnswered = this.state.comprehensive.correctCount + this.state.comprehensive.incorrectCount;
-        const accuracy = totalAnswered > 0 ? Math.round((this.state.comprehensive.correctCount / totalAnswered) * 100) : 0;
-        document.getElementById('ct-accuracy-text').textContent = `正确率: ${accuracy}%`;
-        
-        // 朗读正确答案
-        this.speakWord(speakText);
     },
 
     // 处理忘记答案
